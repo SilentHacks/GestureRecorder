@@ -12,7 +12,7 @@ from utils.fps_tracker import FPSTracker
 from utils.hand_tracker import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
     simplify_gesture
 
-MAX_POINT_HISTORY = 16
+MAX_POINT_HISTORY = 20
 
 
 class GestureRecorder(Recorder):
@@ -23,9 +23,9 @@ class GestureRecorder(Recorder):
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
             min_tracking_confidence: float = 0.7,
-            gesture_leniency: float = 0.5,
-            gesture_threshold: float = 0.6,
-            strategy: int = 1
+            gesture_leniency: float = 0.3,
+            gesture_threshold: float = 0.99,
+            strategy: int = 3
     ):
         """
         Initialize the recorder.
@@ -52,7 +52,12 @@ class GestureRecorder(Recorder):
 
         self.point_history: deque[tuple[int, int]] = deque(maxlen=MAX_POINT_HISTORY)
         self.gesture_history: deque[bool] = deque(maxlen=MAX_POINT_HISTORY)
+        self.landmark_history = deque(maxlen=MAX_POINT_HISTORY)
         self.color_keep = 0
+        self.first_frame = None
+        self.last_frame = None
+        self.is_recording = False
+        self.ticket = False
 
         # self.gesture = self.calculate_points(EXAMPLE_DATA)
 
@@ -81,7 +86,6 @@ class GestureRecorder(Recorder):
         points = []
         point_history = point_history or self.point_history
         zero_x, zero_y = point_history[0]
-        max_value = 0
         for point in point_history:
             # Calculate relative to the first point
             x, y = point
@@ -119,7 +123,7 @@ class GestureRecorder(Recorder):
             plt.plot(simplified_x, simplified_y, 'b')
             plt.show()
 
-        return list(zip(simplified_x, simplified_y))
+        return list(zip(simplified_x, simplified_y))  # list[tuple[float, float]]
 
     @staticmethod
     def get_center_point(hand_landmarks, height: int, width: int) -> tuple[int, int]:
@@ -134,8 +138,8 @@ class GestureRecorder(Recorder):
         if hand_landmarks is None:
             return 0, 0
 
-        x = min(int(hand_landmarks.landmark[8].x * width), width - 1)
-        y = min(int(hand_landmarks.landmark[8].y * height), height - 1)
+        x = min(int(hand_landmarks.landmark[0].x * width), width - 1)
+        y = min(int(hand_landmarks.landmark[0].y * height), height - 1)
 
         return x, y
 
@@ -191,17 +195,25 @@ class GestureRecorder(Recorder):
         # Return the minimum cumulative distance between the two sequences
         return dtw_matrix[-1, -1]
 
-    def detect_gesture(self, ratios):
+    def check_gesture_frames(self, pose_ratios: list[float]):
+        return super().check_gesture(ratios=pose_ratios, gesture=self.last_frame)
+
+    def detect_gesture(self, ratios, pose_ratios):
         # Calculate the DTW distance between the gesture and the stored gesture
         distance = self.dtw_distance(ratios, self.gesture)
         # distance2, _ = fastdtw(ratios, self.gesture, dist=euclidean)
 
-        threshold = 1.5
+        threshold = 2.5
         # Update the minimum distance and gesture ID if a better match is found
-        if distance < threshold:
-            self.color_keep = int(MAX_POINT_HISTORY * 0.75)
 
-        return distance < threshold
+        if distance < threshold:
+            if self.ticket:
+                if self.check_gesture_frames(pose_ratios=pose_ratios):
+                    self.ticket = False
+                    self.color_keep = int(MAX_POINT_HISTORY * 0.75)
+                    return True
+
+        return False
 
     def handle_key(self, key: int, ratios: list[float], height: int, width: int) -> bool:
         """
@@ -222,14 +234,19 @@ class GestureRecorder(Recorder):
             self.clear_gesture()
         elif key == 100:  # D:
             self.clear_gesture()
-        elif key == 115:  # S:
-            if ratios:
-                self.save_gesture(ratios=ratios)
-            elif len(self.point_history) == MAX_POINT_HISTORY:
-                # self.save_gesture(ratios=self.calculate_points(height=height, width=width))
-                self.save_gesture(ratios=self.calculate_points_sigma(plot=True))
 
         return False
+
+    def clear_gesture(self):
+        """
+        Clear the gesture.
+        :return:
+        """
+        self.gesture = None
+        self.detected = False
+        self.point_history.clear()
+        self.first_frame = None
+        self.last_frame = None
 
     def record(self):
         """
@@ -262,11 +279,14 @@ class GestureRecorder(Recorder):
                         if any(point == (0, 0) for point in self.point_history):
                             self.point_history.clear()
                         else:
+                            pose_ratios = self.calculate_ratios(hand_landmarks)
+                            if super().check_gesture(ratios=pose_ratios, gesture=self.first_frame):
+                                self.ticket = True
                             ratios = self.calculate_points_sigma()
-                            found = self.detect_gesture(ratios=ratios)
+                            found = self.detect_gesture(ratios=ratios, pose_ratios=pose_ratios)
 
-                self.point_history.append(self.get_center_point(hand_landmarks=hand_landmarks,
-                                                                height=height, width=width))
+                center_point = self.get_center_point(hand_landmarks=hand_landmarks, height=height, width=width)
+                self.point_history.append(center_point)
                 self.gesture_history.append(found)
 
                 # print(self.point_history)
@@ -275,6 +295,23 @@ class GestureRecorder(Recorder):
                 cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
                 key = cv2.waitKey(1)
+
+                if key == 115:  # S:
+                    self.is_recording = True
+                    self.clear_gesture()
+
+                if self.is_recording:
+                    if len(self.point_history) == MAX_POINT_HISTORY:
+                        if ratios:
+                            self.save_gesture(ratios=ratios)
+                        elif len(self.point_history) == MAX_POINT_HISTORY:
+                            self.save_gesture(ratios=self.calculate_points_sigma(plot=True))
+
+                        self.last_frame = self.calculate_ratios(hand_landmarks)
+                        self.is_recording = False
+                    elif len(self.point_history) == 0:
+                        self.first_frame = self.calculate_ratios(hand_landmarks)
+
                 if self.handle_key(key=key, ratios=ratios, height=height, width=width):
                     break
 

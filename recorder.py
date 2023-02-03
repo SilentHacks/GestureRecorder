@@ -131,11 +131,12 @@ class Recorder:
         self.gesture = None
         self.detected = False
 
-    def check_gesture(self, ratios: list[float]):
+    def check_gesture(self, ratios: list[float], gesture=None):
         """
         Check if the gesture is within the leniency and threshold of the saved gesture.
 
         :param ratios: list of ratios
+        :param gesture: gesture to check against
         :return: True if gesture surpasses threshold, False otherwise
         """
         # correct = 0
@@ -146,10 +147,11 @@ class Recorder:
         # return correct > self.gesture_threshold * len(ratios)
 
         # This is a more optimized version of the above code
+        gesture = gesture or self.gesture
         wrong = 0
         wrong_threshold = len(ratios) * (1 - self.gesture_threshold)
         for i in range(len(ratios)):
-            if abs(ratios[i] - self.gesture[i]) > self.gesture_leniency:
+            if abs(ratios[i] - gesture[i]) > self.gesture_leniency:
                 wrong += 1
 
             if wrong > wrong_threshold:
