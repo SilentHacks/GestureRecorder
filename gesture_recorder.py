@@ -1,6 +1,8 @@
 from collections import deque, Counter
 
 import cv2
+import numpy as np
+import scipy.spatial.distance as dist
 
 from recorder import Recorder, hands_module, STRATEGY_PARAMS
 from utils.fps_tracker import FPSTracker
@@ -79,15 +81,14 @@ class GestureRecorder(Recorder):
             x_point = (x - zero_x) / width
             y_point = (y - zero_y) / height
 
-            points.append(x_point)
-            points.append(y_point)
+            points.append((x_point, y_point))
 
-            # Calculate the max value
-            max_value = max(max_value, abs(x_point), abs(y_point))
-
-        # Normalize the points
-        for i in range(len(points)):
-            points[i] /= max_value
+        #     # Calculate the max value
+        #     max_value = max(max_value, abs(x_point), abs(y_point))
+        #
+        # # Normalize the points
+        # for i in range(len(points)):
+        #     points[i] /= max_value
 
         return points
 
@@ -140,6 +141,37 @@ class GestureRecorder(Recorder):
                     break
 
         return True
+
+    @staticmethod
+    def dtw_distance(seq1, seq2):
+        # Initialize the DTW matrix with zeros
+        dtw_matrix = np.zeros((len(seq1), len(seq2)))
+
+        for i in range(len(seq1)):
+            for j in range(len(seq2)):
+                # Calculate the Euclidean distance between the two points
+                cost = dist.euclidean(seq1[i], seq2[j])
+
+                # Update the DTW matrix
+                if i == 0 and j == 0:
+                    dtw_matrix[i, j] = cost
+                elif i == 0:
+                    dtw_matrix[i, j] = dtw_matrix[i, j - 1] + cost
+                elif j == 0:
+                    dtw_matrix[i, j] = dtw_matrix[i - 1, j] + cost
+                else:
+                    dtw_matrix[i, j] = min(dtw_matrix[i - 1, j], dtw_matrix[i, j - 1], dtw_matrix[i - 1, j - 1]) + cost
+
+        # Return the minimum cumulative distance between the two sequences
+        return dtw_matrix[-1, -1]
+
+    def detect_gesture(self, ratios):
+        # Calculate the DTW distance between the gesture and the stored gesture
+        distance = self.dtw_distance(ratios, self.gesture)
+        print(distance)
+
+        # Update the minimum distance and gesture ID if a better match is found
+        return distance < 1.2
 
     def handle_key(self, key: int, ratios: list[float], height: int, width: int) -> bool:
         """
@@ -197,7 +229,7 @@ class GestureRecorder(Recorder):
                     hand_landmarks = self.draw_landmarks(frame=frame, results=results)  # type: ignore
                     if self.gesture is not None and len(self.point_history) == MAX_POINT_HISTORY:
                         ratios = self.calculate_points(height=height, width=width)
-                        found = self.check_gesture(ratios=ratios)
+                        found = self.detect_gesture(ratios=ratios)
 
                 self.point_history.append(self.get_center_point(hand_landmarks=hand_landmarks,
                                                                 height=height, width=width))
