@@ -29,7 +29,8 @@ class Recorder:
             min_tracking_confidence: float = 0.7,
             gesture_leniency: float = 0.5,
             gesture_threshold: float = 0.8,
-            strategy: int = 1
+            strategy: int = 1,
+            use_default_params: bool = True
     ):
         """
         Initialize the recorder.
@@ -48,8 +49,14 @@ class Recorder:
         self.static_image_mode = static_image_mode
         self.min_detection_confidence = min_detection_confidence
         self.min_tracking_confidence = min_tracking_confidence
-        self.gesture_leniency = gesture_leniency
-        self.gesture_threshold = gesture_threshold
+        self.use_default_params = use_default_params
+
+        if use_default_params:
+            self.gesture_leniency, self.gesture_threshold = STRATEGY_PARAMS[strategy]
+        else:
+            self.gesture_leniency = gesture_leniency
+            self.gesture_threshold = gesture_threshold
+
         self.strategy = strategy
         self.gesture = None
         self.detected = False
@@ -131,11 +138,12 @@ class Recorder:
         self.gesture = None
         self.detected = False
 
-    def check_gesture(self, ratios: list[float]):
+    def check_gesture(self, ratios: list[float], gesture: list[float] = None):
         """
         Check if the gesture is within the leniency and threshold of the saved gesture.
 
         :param ratios: list of ratios
+        :param gesture: gesture to check against (if None, use the saved gesture)
         :return: True if gesture surpasses threshold, False otherwise
         """
         # correct = 0
@@ -145,11 +153,13 @@ class Recorder:
         #
         # return correct > self.gesture_threshold * len(ratios)
 
+        gesture = gesture or self.gesture
+
         # This is a more optimized version of the above code
         wrong = 0
         wrong_threshold = len(ratios) * (1 - self.gesture_threshold)
         for i in range(len(ratios)):
-            if abs(ratios[i] - self.gesture[i]) > self.gesture_leniency:
+            if abs(ratios[i] - gesture[i]) > self.gesture_leniency:
                 wrong += 1
 
             if wrong > wrong_threshold:
@@ -323,7 +333,8 @@ class Recorder:
 
         if 49 <= key <= 51:  # 1-3
             self.strategy = key - 48
-            self.gesture_leniency, self.gesture_threshold = STRATEGY_PARAMS[self.strategy]
+            if self.use_default_params:
+                self.gesture_leniency, self.gesture_threshold = STRATEGY_PARAMS[self.strategy]
             self.clear_gesture()
         elif key == 100:  # D:
             self.clear_gesture()
