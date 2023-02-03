@@ -68,11 +68,41 @@ def laplacian_smoothing(tracking_points: list[tuple[int, int]]):
     return smoothed_points
 
 
+def laplacian_smoothing_3d(tracking_points: list[tuple[int, int, int]]):
+    """Smooth the tracking points using the mean of each point and its neighbors"""
+    smoothed_points = []
+    for i in range(len(tracking_points)):
+        x, y, z = tracking_points[i]
+        if i == 0:
+            x_prev, y_prev, z_prev = tracking_points[i]
+        else:
+            x_prev, y_prev, z_prev = tracking_points[i - 1]
+        if i == len(tracking_points) - 1:
+            x_next, y_next, z_next = tracking_points[i]
+        else:
+            x_next, y_next, z_next = tracking_points[i + 1]
+        smoothed_points.append(((x + x_prev + x_next) / 3, (y + y_prev + y_next) / 3, (z + z_prev + z_next) / 3))
+
+    return smoothed_points
+
+
 def perpendicular_distance(point, start, end):
     """Compute the perpendicular distance from the point to the line segment formed by start and end"""
     x1, y1 = start
     x2, y2 = end
     x0, y0 = point
+    if x1 == x2:
+        return abs(x0 - x1)
+    slope = (y2 - y1) / (x2 - x1)
+    intercept = y1 - slope * x1
+    return abs(slope * x0 - y0 + intercept) / np.sqrt(slope ** 2 + 1)
+
+
+def perpendicular_distance_3d(point, start, end):
+    """Compute the perpendicular distance from the point to the line segment formed by start and end"""
+    x1, y1, z1 = start
+    x2, y2, z2 = end
+    x0, y0, z0 = point
     if x1 == x2:
         return abs(x0 - x1)
     slope = (y2 - y1) / (x2 - x1)
@@ -101,17 +131,38 @@ def simplify_gesture(points, tolerance):
     return results
 
 
+def simplify_gesture_3d(points, tolerance):
+    """Simplify the given set of points using the Ramer-Douglas-Peucker algorithm"""
+    # Find the point with the maximum distance from the line segment formed by the start and end points
+    dmax = 0
+    index = 0
+    for i in range(1, len(points) - 1):
+        d = perpendicular_distance_3d(points[i], points[0], points[-1])
+        if d > dmax:
+            index = i
+            dmax = d
+    # If the maximum distance is greater than the tolerance, recursively simplify
+    if dmax > tolerance:
+        results1 = simplify_gesture_3d(points[:index + 1], tolerance)
+        results2 = simplify_gesture_3d(points[index:], tolerance)
+        # Concatenate the simplified paths
+        results = results1[:-1] + results2
+    else:
+        results = [points[0], points[-1]]
+    return results
+
+
 if __name__ == '__main__':
-    points = [(i, i ** 2) for i in range(10)]
+    points = [(i, i ** 2, i ** 2 + 1) for i in range(10)]
     tolerance = 0.5
 
-    val_result = simplify_gesture(points, tolerance)
+    val_result = simplify_gesture_3d(points, tolerance)
     print(val_result)
 
     from fastdtw import fastdtw
     from scipy.spatial.distance import euclidean
 
-    x = [(i + 1, i ** 2) for i in range(10)]
+    x = [(i + 1, i ** 2, i ** 2 + 1) for i in range(10)]
 
     distance, path = fastdtw(points, x, dist=euclidean)
     print(distance)

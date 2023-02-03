@@ -2,17 +2,22 @@ from collections import deque, Counter
 
 import cv2
 import numpy as np
+import mediapipe
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import scipy.spatial.distance as dist
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
 
-from recorder import Recorder, hands_module, STRATEGY_PARAMS
+from recorder import Recorder, STRATEGY_PARAMS, draw_module
 from utils.fps_tracker import FPSTracker
-from utils.hand_tracker import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
-    simplify_gesture
+from utils.tracking import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
+    simplify_gesture, laplacian_smoothing_3d, simplify_gesture_3d
 
-MAX_POINT_HISTORY = 20
+MAX_POINT_HISTORY = 16
+
+
+pose_module = mediapipe.solutions.pose
 
 
 class GestureRecorder(Recorder):
@@ -49,15 +54,14 @@ class GestureRecorder(Recorder):
             gesture_threshold=gesture_threshold,
             strategy=strategy
         )
-
+        self.countdown = 30
         self.point_history: deque[tuple[int, int]] = deque(maxlen=MAX_POINT_HISTORY)
         self.gesture_history: deque[bool] = deque(maxlen=MAX_POINT_HISTORY)
         self.landmark_history = deque(maxlen=MAX_POINT_HISTORY)
         self.color_keep = 0
         self.first_frame = None
         self.last_frame = None
-        self.is_recording = False
-        self.ticket = False
+        self.ticket = True
 
         # self.gesture = self.calculate_points(EXAMPLE_DATA)
 
@@ -74,77 +78,81 @@ class GestureRecorder(Recorder):
 
         return 0, 0, 255
 
-    def calculate_points(self, height: int, width: int, point_history: deque[tuple[int, int]] = None) -> list[float]:
+    def draw_landmarks(self, frame, results):
         """
-        Calculate the normalized points of the hand landmarks.
+        Draw the landmarks on the frame.
 
-        :param height: the height of the image
-        :param width: the width of the image
-        :param point_history: the point history to use (if not provided, use the current point history)
-        :return: the points
+        :param frame: frame to draw on
+        :param results: results from the mediapipe hands module
+        :return:
         """
-        points = []
-        point_history = point_history or self.point_history
-        zero_x, zero_y = point_history[0]
-        for point in point_history:
-            # Calculate relative to the first point
-            x, y = point
-            x_point = (x - zero_x) / width
-            y_point = (y - zero_y) / height
+        color = self.color
+        draw_module.draw_landmarks(
+            image=frame,
+            landmark_list=results.pose_landmarks,
+            connections=pose_module.POSE_CONNECTIONS,
+            landmark_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2),
+            connection_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2)
+        )
 
-            points.append((x_point, y_point))
+        return results.pose_landmarks
 
-        #     # Calculate the max value
-        #     max_value = max(max_value, abs(x_point), abs(y_point))
-        #
-        # # Normalize the points
-        # for i in range(len(points)):
-        #     points[i] /= max_value
-
-        return points
-
-    def calculate_points_sigma(self, plot: bool = False):
-        normal_x, normal_y = normalize_gesture_2d(self.point_history)
-        list_coords = list(zip(normal_x, normal_y))
-        smoothed_x, smoothed_y = zip(*laplacian_smoothing(list_coords))
+    def calculate_points(self, plot: bool = False):
+        normal_x, normal_y, normal_z = normalize_gesture(self.point_history)
+        list_coords = list(zip(normal_x, normal_y, normal_z))
+        smoothed_x, smoothed_y, smoothed_z = zip(*laplacian_smoothing_3d(list_coords))
         # plot this in red
 
         if plot:
-            plt.plot(smoothed_x, smoothed_y, 'r')
-            print(len(smoothed_x), 'smooth')
+            # plt.plot(smoothed_x, smoothed_y, 'r')
 
-            smoothed_x, smoothed_y = zip(*smooth_gesture(list_coords))
-            # plot this in green
-            plt.plot(smoothed_x, smoothed_y, 'g')
-
-        simplified_x, simplified_y = zip(*simplify_gesture(list(zip(smoothed_x, smoothed_y)), tolerance=0.01))
-        # plot this in blue
-        if plot:
-            plt.plot(simplified_x, simplified_y, 'b')
+            # smoothed_x, smoothed_y = zip(*smooth_gesture(list_coords))
+            # plot this in green and 3d
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.plot(smoothed_x, smoothed_y, smoothed_z, 'g')
             plt.show()
 
-        return list(zip(simplified_x, simplified_y))  # list[tuple[float, float]]
+        simplified_x, simplified_y, simplified_z = zip(*simplify_gesture_3d(
+            list(zip(smoothed_x, smoothed_y, smoothed_z)), tolerance=0.01))
+        # plot this in blue
+        if plot:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.plot(simplified_x, simplified_y, simplified_z, 'b')
+            plt.show()
+
+        # print(f'Len smoothed: {len(smoothed_x)}')
+        # print(f'Len simplified: {len(simplified_x)}')
+
+        return list(zip(simplified_x, simplified_y))  # list[tuple[float, float, float]]
 
     @staticmethod
-    def get_center_point(hand_landmarks, height: int, width: int) -> tuple[int, int]:
+    def get_center_point(pose_landmarks, height: int, width: int) -> tuple[int, int]:
         """
         Get the center point of the hand.
 
-        :param hand_landmarks: the hand landmarks
+        :param pose_landmarks: the hand landmarks
         :param height: the height of the image
         :param width: the width of the image
         :return: the center point
         """
-        if hand_landmarks is None:
-            return 0, 0
+        if pose_landmarks is None:
+            return 0, 0, 0
 
-        x = min(int(hand_landmarks.landmark[0].x * width), width - 1)
-        y = min(int(hand_landmarks.landmark[0].y * height), height - 1)
+        # get midpoint of landmarks 16, 18 and 20
+        x = min(int((pose_landmarks.landmark[16].x + pose_landmarks.landmark[18].x + pose_landmarks.landmark[20].x) / 3 * width), width - 1)
+        y = min(int((pose_landmarks.landmark[16].y + pose_landmarks.landmark[18].y + pose_landmarks.landmark[20].y) / 3 * height), height - 1)
+        z = min(int((pose_landmarks.landmark[16].z + pose_landmarks.landmark[18].z + pose_landmarks.landmark[20].z) / 3 * width), width - 1)
 
-        return x, y
+        # x = min(int(pose_landmarks.landmark[16].x * width), width - 1)
+        # y = min(int(pose_landmarks.landmark[16].y * height), height - 1)
+        # z = min(int(pose_landmarks.landmark[16].z * width), width - 1)
 
-        # x = min(int(hand_landmarks.landmark[0].x * width), width - 1)
-        # y = min(int(hand_landmarks.landmark[0].y * height), height - 1)
+        return x, y, z
+
+        # x = min(int(pose_landmarks.landmark[0].x * width), width - 1)
+        # y = min(int(pose_landmarks.landmark[0].y * height), height - 1)
         #
         # return x, y
 
@@ -172,46 +180,19 @@ class GestureRecorder(Recorder):
 
         return True
 
-    @staticmethod
-    def dtw_distance(seq1, seq2):
-        # Initialize the DTW matrix with zeros
-        dtw_matrix = np.zeros((len(seq1), len(seq2)))
-
-        for i in range(len(seq1)):
-            for j in range(len(seq2)):
-                # Calculate the Euclidean distance between the two points
-                cost = dist.euclidean(seq1[i], seq2[j])
-
-                # Update the DTW matrix
-                if i == 0 and j == 0:
-                    dtw_matrix[i, j] = cost
-                elif i == 0:
-                    dtw_matrix[i, j] = dtw_matrix[i, j - 1] + cost
-                elif j == 0:
-                    dtw_matrix[i, j] = dtw_matrix[i - 1, j] + cost
-                else:
-                    dtw_matrix[i, j] = min(dtw_matrix[i - 1, j], dtw_matrix[i, j - 1], dtw_matrix[i - 1, j - 1]) + cost
-
-        # Return the minimum cumulative distance between the two sequences
-        return dtw_matrix[-1, -1]
-
     def check_gesture_frames(self, pose_ratios: list[float]):
         return super().check_gesture(ratios=pose_ratios, gesture=self.last_frame)
 
-    def detect_gesture(self, ratios, pose_ratios):
+    def detect_gesture(self, ratios):
         # Calculate the DTW distance between the gesture and the stored gesture
-        distance = self.dtw_distance(ratios, self.gesture)
-        # distance2, _ = fastdtw(ratios, self.gesture, dist=euclidean)
+        distance, _ = fastdtw(ratios, self.gesture, dist=euclidean)
 
-        threshold = 2.5
+        threshold = 2.2
         # Update the minimum distance and gesture ID if a better match is found
 
         if distance < threshold:
-            if self.ticket:
-                if self.check_gesture_frames(pose_ratios=pose_ratios):
-                    self.ticket = False
-                    self.color_keep = int(MAX_POINT_HISTORY * 0.75)
-                    return True
+            self.color_keep = int(MAX_POINT_HISTORY * 0.75)
+            return True
 
         return False
 
@@ -254,12 +235,10 @@ class GestureRecorder(Recorder):
 
         :return:
         """
-        with hands_module.Hands(
-                static_image_mode=self.static_image_mode,
-                min_detection_confidence=self.min_detection_confidence,
-                min_tracking_confidence=self.min_tracking_confidence,
-                max_num_hands=self.num_hands
-        ) as hands:
+        with pose_module.Pose(
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+        ) as pose:
             fps_tracker = FPSTracker()
             while True:
                 _, frame = self.capture.read()
@@ -267,25 +246,24 @@ class GestureRecorder(Recorder):
 
                 # To improve performance, mark the image as not writeable to pass by reference
                 frame.flags.writeable = False
-                results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 frame.flags.writeable = True
 
-                hand_landmarks = None
+                pose_landmarks = None
                 ratios = None
                 found = False
-                if results.multi_hand_landmarks is not None:  # type: ignore
-                    hand_landmarks = self.draw_landmarks(frame=frame, results=results)  # type: ignore
+                if results.pose_landmarks is not None:  # type: ignore
+                    pose_landmarks = self.draw_landmarks(frame=frame, results=results)  # type: ignore
                     if self.gesture is not None and len(self.point_history) == MAX_POINT_HISTORY:
                         if any(point == (0, 0) for point in self.point_history):
                             self.point_history.clear()
                         else:
-                            pose_ratios = self.calculate_ratios(hand_landmarks)
-                            if super().check_gesture(ratios=pose_ratios, gesture=self.first_frame):
-                                self.ticket = True
-                            ratios = self.calculate_points_sigma()
-                            found = self.detect_gesture(ratios=ratios, pose_ratios=pose_ratios)
+                            # if super().check_gesture(ratios=pose_ratios, gesture=self.first_frame):
+                            #     self.ticket = True
+                            ratios = self.calculate_points()
+                            found = self.detect_gesture(ratios=ratios)
 
-                center_point = self.get_center_point(hand_landmarks=hand_landmarks, height=height, width=width)
+                center_point = self.get_center_point(pose_landmarks=pose_landmarks, height=height, width=width)
                 self.point_history.append(center_point)
                 self.gesture_history.append(found)
 
@@ -296,21 +274,29 @@ class GestureRecorder(Recorder):
 
                 key = cv2.waitKey(1)
 
+                if self.start_countdown:
+                    self.countdown -= 1
+
                 if key == 115:  # S:
+                    self.start_countdown = True
+
+                if self.countdown == 0:
                     self.is_recording = True
                     self.clear_gesture()
+                    self.countdown = 30
+                    self.start_countdown = False
 
                 if self.is_recording:
                     if len(self.point_history) == MAX_POINT_HISTORY:
                         if ratios:
                             self.save_gesture(ratios=ratios)
                         elif len(self.point_history) == MAX_POINT_HISTORY:
-                            self.save_gesture(ratios=self.calculate_points_sigma(plot=True))
+                            self.save_gesture(ratios=self.calculate_points(plot=True))
 
-                        self.last_frame = self.calculate_ratios(hand_landmarks)
+                        # self.last_frame = self.calculate_ratios(pose_landmarks)
                         self.is_recording = False
-                    elif len(self.point_history) == 0:
-                        self.first_frame = self.calculate_ratios(hand_landmarks)
+                    # elif len(self.point_history) == 0:
+                    #     self.first_frame = self.calculate_ratios(pose_landmarks)
 
                 if self.handle_key(key=key, ratios=ratios, height=height, width=width):
                     break

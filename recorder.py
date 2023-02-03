@@ -53,6 +53,8 @@ class Recorder:
         self.strategy = strategy
         self.gesture = None
         self.detected = False
+        self.is_recording = False
+        self.start_countdown = False
 
     def __del__(self):
         cv2.destroyAllWindows()
@@ -100,6 +102,19 @@ class Recorder:
         cv2.putText(image, f'STRATEGY: {self.strategy}', (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1,
                     cv2.LINE_AA)
+
+        if self.gesture:
+            color = (0, 255, 0)
+        else:
+            if self.countdown < 30:
+                if self.countdown == 0:
+                    color = (0, 255, 0)
+                else:
+                    color = (0, 255, 255)
+            else:
+                color = (0, 0, 255)
+
+        cv2.circle(image, (image.shape[1] - 30, 30), 20, color, -1)
 
         if self.gesture:
             text = 'GESTURE STORED'
