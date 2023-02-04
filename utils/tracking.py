@@ -34,7 +34,7 @@ def normalize_gesture_2d(gesture):
     x_min, x_max, y_min, y_max = min(x), max(x), min(y), max(y)
     x_axis_length = x_max - x_min
     y_axis_length = y_max - y_min
-    axis_length = max(x_axis_length, y_axis_length)
+    axis_length = max(x_axis_length, y_axis_length) or 1
     x_average = sum(x) / len(x)
     y_average = sum(y) / len(y)
     normalized_x = [(x_i - x_average) / axis_length for x_i in x]
@@ -163,10 +163,10 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     good_landmarks = set()
     for landmark_id, tracking_points in landmark_history.items():
         # Smooth the tracking points using a median filter with r=3
-        smoothed_points = laplacian_smoothing(tracking_points)
+        # smoothed_points = laplacian_smoothing(tracking_points)
 
-        # normalized = normalize_gesture_2d(tracking_points)
-        # smoothed_points = laplacian_smoothing(list(zip(*normalized)))
+        normalized = normalize_gesture_2d(tracking_points)
+        smoothed_points = laplacian_smoothing(list(zip(*normalized)))
 
         # Check the variance of the signal to determine if the landmark is relevant
         x_values, y_values = zip(*smoothed_points)

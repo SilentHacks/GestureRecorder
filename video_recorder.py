@@ -66,28 +66,28 @@ def record(gesture_name, video_name):
             if results.pose_landmarks:
                 for num in FOCUS_POINTS:
                     # calculate distance between left and right shoulder
-                    shoulder_distance = euclidean(
-                        (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x,
-                         results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y),
-                        (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
-                         results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
-                    )
-                    neck_x = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x +
-                              results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
-                    neck_y = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
-                              results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
-                    neck_z = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].z +
-                              results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].z) / 2
+                    # shoulder_distance = euclidean(
+                    #     (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x,
+                    #      results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y),
+                    #     (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
+                    #      results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
+                    # )
+                    # neck_x = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x +
+                    #           results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
+                    # neck_y = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
+                    #           results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
+                    # neck_z = (results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].z +
+                    #           results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].z) / 2
                     landmark = results.pose_world_landmarks.landmark[num.value]
                     if landmark:
                         # Normalize the coordinates to the shoulder width
                         # x = min(int((landmark.x - neck_x) / shoulder_distance * width), width - 1)
                         # y = min(int((landmark.y - neck_y) / shoulder_distance * width), height - 1)
-                        x = (landmark.x - neck_x) / shoulder_distance
-                        y = (landmark.y - neck_y) / shoulder_distance
+                        # x = (landmark.x - neck_x) / shoulder_distance
+                        # y = (landmark.y - neck_y) / shoulder_distance
                         # z = (landmark.z - neck_z) / shoulder_distance
-                        history[num.value].append((x, y))
-                        # history[num.value].append((landmark.x, landmark.y))
+                        # history[num.value].append((x, y))
+                        history[num.value].append((landmark.x, landmark.y))
                     else:
                         history[num.value].append((0, 0))
 
@@ -120,7 +120,7 @@ def record(gesture_name, video_name):
     return history
 
 
-gesture = 'baseball_swing'
+gesture = 'tennis_swing'
 
 
 def main():
@@ -144,7 +144,7 @@ def compare():
     with open(f'data/models/{gesture}.json', 'r') as f:
         model = json.load(f)
 
-    history = record('baseball_swing', '9')
+    history = record('tennis_swing', '10')
     landmark_ids = {int(idx) for idx in model['points'].keys()}
     processed = process_landmarks(history, relevant_landmarks=landmark_ids, plot=True)
 

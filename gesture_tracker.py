@@ -43,6 +43,7 @@ class GestureTracker:
         self.ticket = True
         self.detected = ''
         self.mouse = Controller()
+        self.left = False
 
         self.gestures = self.load_gestures()
 
@@ -121,25 +122,26 @@ class GestureTracker:
         if landmark.visibility < 0.5:
             return 0, 0
 
-        shoulder_distance = euclidean(
-            (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x,
-             results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y),
-            (results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
-             results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
-        )
-        neck_x = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x +
-                  results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
-        neck_y = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
-                  results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
+        # shoulder_distance = euclidean(
+        #     (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x,
+        #      results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y),
+        #     (results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
+        #      results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
+        # )
+        # neck_x = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x +
+        #           results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
+        # neck_y = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
+        #           results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
         # Normalize the coordinates to the shoulder width
         # x = min(int((landmark.x - neck_x) / shoulder_distance * width), width - 1)
         # y = min(int((landmark.y - neck_y) / shoulder_distance * width), height - 1)
-        x = (landmark.x - neck_x) / shoulder_distance
-        y = (landmark.y - neck_y) / shoulder_distance
+        # x = (landmark.x - neck_x) / shoulder_distance
+        # y = (landmark.y - neck_y) / shoulder_distance
+
+        x = landmark.x
+        y = landmark.y
 
         return x, y
-
-        # return landmark.x, landmark.y
 
     def detect_gesture(self):
         scores = []
@@ -163,15 +165,15 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            print(gesture['name'], distances, mean)
-            if mean < (5 * len(distances)):
+            # print(gesture['name'], distances, mean)
+            if mean < 2:
                 scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
-            print('Found')
             self.color_keep = 20
             self.detected = scores[0][0]
+            print(self.detected)
             self.move_mouse()
             self.clear_history()
 
@@ -182,13 +184,22 @@ class GestureTracker:
     def move_mouse(self):
         if self.detected == 'baseball_swing':
             self.mouse.position = (1100, 800)
+            time.sleep(0.03)
 
             # Drag mouse to the left with deceleration
             for i in range(50, 20, -1):
                 self.mouse.move(-i, -i)
                 time.sleep(0.01)
 
-            self.mouse.position = (1300, 400)
+        elif self.detected == 'tennis_swing':
+            # Drag mouse to the left with deceleration
+            self.mouse.position = (1200, 400)
+            time.sleep(0.03)
+
+            for i in range(50, 10, -1):
+                self.mouse.move(-i, 0)
+                time.sleep(0.01)
+
 
     @staticmethod
     def handle_key(key: int) -> bool:
