@@ -1,4 +1,9 @@
 import numpy as np
+from matplotlib import pyplot as plt
+from fastdtw import fastdtw
+from mpl_toolkits.mplot3d import Axes3D
+import scipy.spatial.distance as dist
+from scipy.spatial.distance import euclidean
 
 
 def collect_points(hand_landmarks, tracking_points):
@@ -152,6 +157,91 @@ def simplify_gesture_3d(points, tolerance):
     return results
 
 
+def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
+    """Select the relevant landmarks from the tracking points based on the variance of its signal"""
+    good_landmarks = set()
+    for landmark_id, tracking_points in landmark_history.items():
+        # Smooth the tracking points using a median filter with r=3
+        smoothed_points = laplacian_smoothing(tracking_points)
+
+        # Check the variance of the signal to determine if the landmark is relevant
+        x_values, y_values = zip(*smoothed_points)
+        x_var = np.var(x_values)
+        y_var = np.var(y_values)
+        # print(landmark_id, x_var, y_var)
+        if x_var > 0.1 or y_var > 0.1 and (x_var > 0.05 and y_var > 0.05):
+            good_landmarks.add(landmark_id)
+
+    # print(len(good_landmarks))
+    return good_landmarks
+
+
+def gaussian_filter(points: list[tuple[int, int]], sigma: float = 1.0):
+    """Apply a Gaussian filter to the given points"""
+    # Compute the Gaussian kernel
+    kernel = np.exp(-np.arange(-3, 4) ** 2 / (2 * sigma ** 2))
+    kernel = kernel / np.sum(kernel)
+
+    # Apply the filter to the points
+    x_values, y_values = zip(*points)
+    x_values = np.convolve(x_values, kernel, mode='same')
+    y_values = np.convolve(y_values, kernel, mode='same')
+
+    return list(zip(x_values, y_values))
+
+
+def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], relevant_landmarks: set[int] = None):
+    """Process the landmark history to select relevant landmarks and simplify the tracking points"""
+    # Select the relevant landmarks
+    good_landmarks = select_landmarks(landmark_history).union(relevant_landmarks or set())
+
+    # Simplify the tracking points for each landmark
+    simplified_landmarks = {}
+    for landmark_id in good_landmarks:
+        smoothed_points = np.array(gaussian_filter(landmark_history[landmark_id], sigma=1))
+        smoothed_points -= np.mean(smoothed_points, axis=0)
+
+        # smoothed_points = np.array(smooth_gesture(tracking_points))
+
+        # Convert the smoothed points to a Python list
+        smoothed_points = smoothed_points.tolist()
+        simplified_landmarks[landmark_id] = smoothed_points
+
+        # plot the simplified points
+    #     plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
+    #
+    # plt.legend()
+    # plt.show()
+
+    return simplified_landmarks
+
+
+def calculate_threshold(reference_gesture, input_signal, window_size=10, threshold_multiplier=3):
+    """Calculate the DTW threshold using a sliding window approach"""
+    # Compute the DTW distance between the input signal and the reference gesture
+    distance, _ = fastdtw(reference_gesture, input_signal, dist=euclidean)
+
+    # Initialize a rolling sum of DTW distances
+    rolling_sum = 0
+
+    # Initialize the threshold as the distance between the reference gesture and the input signal
+    threshold = distance
+
+    # Slide the window over the input signal
+    for i in range(len(input_signal) - window_size):
+        # Add the distance between the reference gesture and the current window to the rolling sum
+        window = input_signal[i:i + window_size]
+        _, path = fastdtw(reference_gesture, window, dist=euclidean)
+        rolling_sum += path[-1][-1]
+
+        # If the end of the window has been reached, update the threshold
+        if i + window_size == len(input_signal) - 1:
+            rolling_average = rolling_sum / window_size
+            threshold = threshold_multiplier * rolling_average
+
+    return threshold
+
+
 if __name__ == '__main__':
     points = [(i, i ** 2, i ** 2 + 1) for i in range(10)]
     tolerance = 0.5
@@ -162,7 +252,7 @@ if __name__ == '__main__':
     from fastdtw import fastdtw
     from scipy.spatial.distance import euclidean
 
-    x = [(i + 1, i ** 2, i ** 2 + 1) for i in range(10)]
+    points2 = [(i + 1, i ** 2, i ** 2 + 1) for i in range(10)]
 
-    distance, path = fastdtw(points, x, dist=euclidean)
+    distance, path = fastdtw(points, points2, dist=euclidean)
     print(distance)

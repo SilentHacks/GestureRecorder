@@ -43,6 +43,7 @@ class Recorder:
         :param gesture_threshold: the threshold of the gesture (0-1)
         :param strategy: the strategy to use for calculating ratios (1-3)
         """
+        self.countdown = 30
         self.capture = cv2.VideoCapture(camera)
         self.num_hands = num_hands
         self.static_image_mode = static_image_mode
