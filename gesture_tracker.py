@@ -1,4 +1,5 @@
 import os
+import time
 from collections import deque, Counter
 import json
 
@@ -8,10 +9,12 @@ import mediapipe
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.spatial.distance as dist
+from pynput.mouse import Controller
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
 
 from recorder import Recorder, STRATEGY_PARAMS, draw_module
+from video_recorder import FOCUS_POINTS
 from utils.fps_tracker import FPSTracker
 from utils.tracking import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
     simplify_gesture, laplacian_smoothing_3d, simplify_gesture_3d, process_landmarks
@@ -20,20 +23,7 @@ mp_pose = mediapipe.solutions.pose
 
 MAX_POINT_HISTORY = 25
 
-FOCUS_POINTS = {
-    mp_pose.PoseLandmark.LEFT_HIP,
-    mp_pose.PoseLandmark.RIGHT_HIP,
-    mp_pose.PoseLandmark.LEFT_KNEE,
-    mp_pose.PoseLandmark.RIGHT_KNEE,
-    mp_pose.PoseLandmark.LEFT_ANKLE,
-    mp_pose.PoseLandmark.RIGHT_ANKLE,
-    mp_pose.PoseLandmark.LEFT_SHOULDER,
-    mp_pose.PoseLandmark.RIGHT_SHOULDER,
-    mp_pose.PoseLandmark.LEFT_ELBOW,
-    mp_pose.PoseLandmark.RIGHT_ELBOW,
-    mp_pose.PoseLandmark.LEFT_WRIST,
-    mp_pose.PoseLandmark.RIGHT_WRIST
-}
+MOVE_MOUSE = False
 
 
 class GestureTracker:
@@ -52,6 +42,7 @@ class GestureTracker:
         self.last_frame = None
         self.ticket = True
         self.detected = ''
+        self.mouse = Controller()
 
         self.gestures = self.load_gestures()
 
@@ -127,7 +118,7 @@ class GestureTracker:
         # calculate distance between left and right shoulder
         landmark = results.pose_landmarks.landmark[num]
 
-        if not landmark:
+        if landmark.visibility < 0.5:
             return 0, 0
 
         shoulder_distance = euclidean(
@@ -162,13 +153,30 @@ class GestureTracker:
 
             mean = sum(distances) / len(distances)
             # print(gesture['name'], distances, mean)
-            if mean < 15:
+            if mean < (3.75 * len(distances)):
                 scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
             self.color_keep = 20
             self.detected = scores[0][0]
+            self.move_mouse()
+            self.clear_history()
+
+    def clear_history(self):
+        for k in self.point_history.keys():
+            self.point_history[k].clear()
+
+    def move_mouse(self):
+        if self.detected == 'baseball_swing':
+            self.mouse.position = (1100, 800)
+
+            # Drag mouse to the left with deceleration
+            for i in range(50, 20, -1):
+                self.mouse.move(-i, -i)
+                time.sleep(0.01)
+
+            self.mouse.position = (1300, 400)
 
     @staticmethod
     def handle_key(key: int) -> bool:

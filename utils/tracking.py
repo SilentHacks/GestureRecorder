@@ -190,7 +190,23 @@ def gaussian_filter(points: list[tuple[int, int]], sigma: float = 1.0):
     return list(zip(x_values, y_values))
 
 
-def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], relevant_landmarks: set[int] = None):
+def gaussian_filter_3d(points: list[tuple[int, int, int]], sigma: float = 1.0):
+    """Apply a Gaussian filter to the given points"""
+    # Compute the Gaussian kernel
+    kernel = np.exp(-np.arange(-3, 4) ** 2 / (2 * sigma ** 2))
+    kernel = kernel / np.sum(kernel)
+
+    # Apply the filter to the points
+    x_values, y_values, z_values = zip(*points)
+    x_values = np.convolve(x_values, kernel, mode='same')
+    y_values = np.convolve(y_values, kernel, mode='same')
+    z_values = np.convolve(z_values, kernel, mode='same')
+
+    return list(zip(x_values, y_values, z_values))
+
+
+def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], relevant_landmarks: set[int] = None,
+                      plot: bool = False):
     """Process the landmark history to select relevant landmarks and simplify the tracking points"""
     # Select the relevant landmarks
     good_landmarks = select_landmarks(landmark_history).union(relevant_landmarks or set())
@@ -207,13 +223,66 @@ def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], releva
         smoothed_points = smoothed_points.tolist()
         simplified_landmarks[landmark_id] = smoothed_points
 
-        # plot the simplified points
-    #     plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
-    #
-    # plt.legend()
-    # plt.show()
+        if plot:
+            # plot the simplified points
+            plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
+
+    if plot:
+        plt.legend()
+        plt.show()
 
     return simplified_landmarks
+
+
+def select_landmarks_3d(landmark_history: dict[int, list[tuple[int, int, int]]]):
+    """Select the relevant landmarks from the tracking points based on the variance of its signal"""
+    good_landmarks = set()
+    for landmark_id, tracking_points in landmark_history.items():
+        # Smooth the tracking points using a median filter with r=3
+        smoothed_points = laplacian_smoothing_3d(tracking_points)
+
+        # Check the variance of the signal to determine if the landmark is relevant
+        x_values, y_values, z_values = zip(*smoothed_points)
+        x_var = np.var(x_values)
+        y_var = np.var(y_values)
+        z_var = np.var(z_values)
+        # print(landmark_id, x_var, y_var, z_var)
+        if (x_var > 0.1 or y_var > 0.1 or z_var > 0.1) and (x_var > 0.05 and y_var > 0.05 and z_var > 0.05):
+            good_landmarks.add(landmark_id)
+
+    # print(len(good_landmarks))
+    return good_landmarks
+
+
+def process_landmarks_3d(landmark_history: dict[..., list[tuple[int, int, int]]], relevant_landmarks: set[int] = None,
+                      plot: bool = False):
+    """Process the landmark history to select relevant landmarks and simplify the tracking points"""
+    # Select the relevant landmarks
+    good_landmarks = select_landmarks_3d(landmark_history).union(relevant_landmarks or set())
+
+    # Simplify the tracking points for each landmark
+    simplified_landmarks = {}
+    for landmark_id in good_landmarks:
+        smoothed_points = np.array(gaussian_filter_3d(landmark_history[landmark_id], sigma=1))
+        smoothed_points -= np.mean(smoothed_points, axis=0)
+
+        # smoothed_points = np.array(smooth_gesture(tracking_points))
+
+        # Convert the smoothed points to a Python list
+        smoothed_points = smoothed_points.tolist()
+        simplified_landmarks[landmark_id] = smoothed_points
+
+        if plot:
+            # plot the simplified points
+            plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
+
+    if plot:
+        plt.legend()
+        plt.show()
+
+    return simplified_landmarks
+
+
 
 
 def calculate_threshold(reference_gesture, input_signal, window_size=10, threshold_multiplier=3):

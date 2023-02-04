@@ -7,7 +7,7 @@ import numpy as np
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 
-from utils.tracking import process_landmarks, calculate_threshold
+from utils.tracking import process_landmarks, calculate_threshold, process_landmarks_3d
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -73,6 +73,8 @@ def record(gesture_name, video_name):
                               results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
                     neck_y = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
                               results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
+                    # neck_z = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].z +
+                    #             results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].z) / 2
                     landmark = results.pose_landmarks.landmark[num.value]
                     if landmark:
                         # Normalize the coordinates to the shoulder width
@@ -80,6 +82,7 @@ def record(gesture_name, video_name):
                         # y = min(int((landmark.y - neck_y) / shoulder_distance * width), height - 1)
                         x = (landmark.x - neck_x) / shoulder_distance
                         y = (landmark.y - neck_y) / shoulder_distance
+                        # z = (landmark.z - neck_z) / shoulder_distance
                         history[num.value].append((x, y))
                     else:
                         history[num.value].append((0, 0))
@@ -94,26 +97,33 @@ def record(gesture_name, video_name):
     return history
 
 
+gesture = 'tennis_swing'
+
+
 def main():
-    history = record('baseball_swing', '9')
-    processed = process_landmarks(history)
+    history = record(gesture, '10')
+    processed = process_landmarks(history, plot=True)
 
     to_save = {
-        "name": "baseball_swing",
+        "name": gesture,
         "points": processed
     }
 
-    with open('data/models/baseball_swing.json', 'w') as f:
+    with open(f'data/models/{gesture}.json', 'w') as f:
         json.dump(to_save, f)
 
 
+def euclidean_weighted(a, b):
+    return euclidean(a, b, w=[1, 1, 0.5])
+
+
 def compare():
-    with open('data/models/baseball_swing.json', 'r') as f:
+    with open(f'data/models/{gesture}.json', 'r') as f:
         model = json.load(f)
 
-    history = record('baseball_swing', '10')
+    history = record('tennis_swing', '9')
     landmark_ids = {int(idx) for idx in model['points'].keys()}
-    processed = process_landmarks(history, relevant_landmarks=landmark_ids)
+    processed = process_landmarks(history, relevant_landmarks=landmark_ids, plot=True)
 
     distances = []
     for landmark_id, points in model['points'].items():
@@ -122,7 +132,7 @@ def compare():
         distances.append(distance)
 
     print(distances)
-    print(sum(distances) / len(distances) < 10)
+    print(sum(distances) / len(distances) < (3.75 * len(distances)))
 
 
 if __name__ == '__main__':
