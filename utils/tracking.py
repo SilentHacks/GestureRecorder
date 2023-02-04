@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from itertools import islice
 from fastdtw import fastdtw
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.spatial.distance as dist
@@ -18,7 +19,7 @@ def normalize_gesture(gesture):
     x_min, x_max, y_min, y_max, z_min, z_max = min(x), max(x), min(y), max(y), min(z), max(z)
     x_axis_length = x_max - x_min
     y_axis_length = y_max - y_min
-    axis_length = max(x_axis_length, y_axis_length)
+    axis_length = max(x_axis_length, y_axis_length) or 1
     x_average = sum(x) / len(x)
     y_average = sum(y) / len(y)
     z_average = sum(z) / len(z)
@@ -127,8 +128,8 @@ def simplify_gesture(points, tolerance):
             dmax = d
     # If the maximum distance is greater than the tolerance, recursively simplify
     if dmax > tolerance:
-        results1 = simplify_gesture(points[:index + 1], tolerance)
-        results2 = simplify_gesture(points[index:], tolerance)
+        results1 = simplify_gesture(list(islice(points, 0, index + 1)), tolerance)
+        results2 = simplify_gesture(list(islice(points, index, len(points))), tolerance)
         # Concatenate the simplified paths
         results = results1[:-1] + results2
     else:
@@ -148,8 +149,8 @@ def simplify_gesture_3d(points, tolerance):
             dmax = d
     # If the maximum distance is greater than the tolerance, recursively simplify
     if dmax > tolerance:
-        results1 = simplify_gesture_3d(points[:index + 1], tolerance)
-        results2 = simplify_gesture_3d(points[index:], tolerance)
+        results1 = simplify_gesture_3d(list(islice(points, 0, index + 1)), tolerance)
+        results2 = simplify_gesture_3d(list(islice(points, index, len(points))), tolerance)
         # Concatenate the simplified paths
         results = results1[:-1] + results2
     else:
@@ -163,6 +164,9 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     for landmark_id, tracking_points in landmark_history.items():
         # Smooth the tracking points using a median filter with r=3
         smoothed_points = laplacian_smoothing(tracking_points)
+
+        # normalized = normalize_gesture_2d(tracking_points)
+        # smoothed_points = laplacian_smoothing(list(zip(*normalized)))
 
         # Check the variance of the signal to determine if the landmark is relevant
         x_values, y_values = zip(*smoothed_points)
@@ -237,8 +241,11 @@ def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], releva
 def select_landmarks_3d(landmark_history: dict[int, list[tuple[int, int, int]]]):
     """Select the relevant landmarks from the tracking points based on the variance of its signal"""
     good_landmarks = set()
+    thresh = 0.125
     for landmark_id, tracking_points in landmark_history.items():
-        # Smooth the tracking points using a median filter with r=3
+        # normalized = normalize_gesture(tracking_points)
+        # smoothed_points = laplacian_smoothing_3d(list(zip(*normalized)))
+
         smoothed_points = laplacian_smoothing_3d(tracking_points)
 
         # Check the variance of the signal to determine if the landmark is relevant
@@ -246,8 +253,8 @@ def select_landmarks_3d(landmark_history: dict[int, list[tuple[int, int, int]]])
         x_var = np.var(x_values)
         y_var = np.var(y_values)
         z_var = np.var(z_values)
-        # print(landmark_id, x_var, y_var, z_var)
-        if (x_var > 0.1 or y_var > 0.1 or z_var > 0.1) and (x_var > 0.05 and y_var > 0.05 and z_var > 0.05):
+        print(landmark_id, x_var, y_var, z_var)
+        if (x_var > thresh or y_var > thresh or z_var > thresh):
             good_landmarks.add(landmark_id)
 
     # print(len(good_landmarks))
@@ -255,15 +262,22 @@ def select_landmarks_3d(landmark_history: dict[int, list[tuple[int, int, int]]])
 
 
 def process_landmarks_3d(landmark_history: dict[..., list[tuple[int, int, int]]], relevant_landmarks: set[int] = None,
-                      plot: bool = False):
+                         plot: bool = False):
     """Process the landmark history to select relevant landmarks and simplify the tracking points"""
     # Select the relevant landmarks
     good_landmarks = select_landmarks_3d(landmark_history).union(relevant_landmarks or set())
 
     # Simplify the tracking points for each landmark
     simplified_landmarks = {}
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
     for landmark_id in good_landmarks:
-        smoothed_points = np.array(gaussian_filter_3d(landmark_history[landmark_id], sigma=1))
+        # simplified = simplify_gesture_3d(landmark_history[landmark_id], tolerance=0.01)
+        simplified = landmark_history[landmark_id]
+
+        smoothed_points = np.array(gaussian_filter_3d(simplified, sigma=1))
         smoothed_points -= np.mean(smoothed_points, axis=0)
 
         # smoothed_points = np.array(smooth_gesture(tracking_points))
@@ -273,16 +287,15 @@ def process_landmarks_3d(landmark_history: dict[..., list[tuple[int, int, int]]]
         simplified_landmarks[landmark_id] = smoothed_points
 
         if plot:
-            # plot the simplified points
-            plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
+            # plot the simplified points in 3D
+            ax.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
 
     if plot:
         plt.legend()
         plt.show()
+        plt.close()
 
     return simplified_landmarks
-
-
 
 
 def calculate_threshold(reference_gesture, input_signal, window_size=10, threshold_multiplier=3):

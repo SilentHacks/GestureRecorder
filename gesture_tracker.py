@@ -17,7 +17,7 @@ from recorder import Recorder, STRATEGY_PARAMS, draw_module
 from video_recorder import FOCUS_POINTS
 from utils.fps_tracker import FPSTracker
 from utils.tracking import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
-    simplify_gesture, laplacian_smoothing_3d, simplify_gesture_3d, process_landmarks
+    simplify_gesture, laplacian_smoothing_3d, simplify_gesture_3d, process_landmarks, process_landmarks_3d
 
 mp_pose = mediapipe.solutions.pose
 
@@ -116,7 +116,7 @@ class GestureTracker:
     @staticmethod
     def get_centre_point(results, num):
         # calculate distance between left and right shoulder
-        landmark = results.pose_landmarks.landmark[num]
+        landmark = results.pose_world_landmarks.landmark[num]
 
         if landmark.visibility < 0.5:
             return 0, 0
@@ -139,6 +139,8 @@ class GestureTracker:
 
         return x, y
 
+        # return landmark.x, landmark.y
+
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
@@ -147,17 +149,27 @@ class GestureTracker:
 
             distances = []
             for landmark_id, points in gesture['points'].items():
+                count = 0
+                for coord in processed[int(landmark_id)]:
+                    if coord[0] == 0 and coord[1] == 0:
+                        count += 1
+                        if count > MAX_POINT_HISTORY / 2:
+                            break
+                if count > MAX_POINT_HISTORY / 2:
+                    return
+
                 distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
                 # distance = calculate_threshold(points, processed[int(landmark_id)])
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            # print(gesture['name'], distances, mean)
-            if mean < (3.75 * len(distances)):
+            print(gesture['name'], distances, mean)
+            if mean < (5 * len(distances)):
                 scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
+            print('Found')
             self.color_keep = 20
             self.detected = scores[0][0]
             self.move_mouse()
