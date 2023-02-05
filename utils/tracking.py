@@ -173,7 +173,7 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
         x_var = np.var(x_values)
         y_var = np.var(y_values)
         # print(landmark_id, x_var, y_var)
-        if x_var > 0.1 or y_var > 0.1 and (x_var > 0.05 and y_var > 0.05):
+        if x_var > 0.1 or y_var > 0.1:
             good_landmarks.add(landmark_id)
 
     # print(len(good_landmarks))
@@ -228,8 +228,9 @@ def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], releva
         simplified_landmarks[landmark_id] = smoothed_points
 
         if plot:
-            # plot the simplified points
-            plt.plot(*zip(*smoothed_points), label=f'Landmark {landmark_id}')
+            # Plot with a deterministic color based on the landmark id
+            color = np.array([landmark_id * 100 % 255, landmark_id * 200 % 255, landmark_id * 300 % 255]) / 255
+            plt.plot(*zip(*smoothed_points), color=color, label=f'Landmark {landmark_id}')
 
     if plot:
         plt.legend()
@@ -253,7 +254,7 @@ def select_landmarks_3d(landmark_history: dict[int, list[tuple[int, int, int]]])
         x_var = np.var(x_values)
         y_var = np.var(y_values)
         z_var = np.var(z_values)
-        print(landmark_id, x_var, y_var, z_var)
+        # print(landmark_id, x_var, y_var, z_var)
         if (x_var > thresh or y_var > thresh or z_var > thresh):
             good_landmarks.add(landmark_id)
 

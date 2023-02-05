@@ -63,7 +63,7 @@ def record(gesture_name, video_name):
                 mp_pose.POSE_CONNECTIONS,
                 landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
 
-            if results.pose_landmarks:
+            if results.pose_world_landmarks:
                 for num in FOCUS_POINTS:
                     # calculate distance between left and right shoulder
                     # shoulder_distance = euclidean(
@@ -120,11 +120,11 @@ def record(gesture_name, video_name):
     return history
 
 
-gesture = 'tennis_swing'
+gesture = 'front_stroke'
 
 
 def main():
-    history = record(gesture, '9')
+    history = record(gesture, '3')
     processed = process_landmarks(history, plot=True)
 
     to_save = {
@@ -144,7 +144,7 @@ def compare():
     with open(f'data/models/{gesture}.json', 'r') as f:
         model = json.load(f)
 
-    history = record('tennis_swing', '10')
+    history = record('front_stroke', '2')
     landmark_ids = {int(idx) for idx in model['points'].keys()}
     processed = process_landmarks(history, relevant_landmarks=landmark_ids, plot=True)
 

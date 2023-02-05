@@ -97,7 +97,10 @@ class GestureTracker:
                     1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
         cv2.putText(image, f'Gesture: {self.detected or None}', (10, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1,
+                    cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 4,
+                    cv2.LINE_AA)
+        cv2.putText(image, f'Gesture: {self.detected or None}', (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2,
                     cv2.LINE_AA)
 
         # if self.gesture:
@@ -174,8 +177,9 @@ class GestureTracker:
             self.color_keep = 20
             self.detected = scores[0][0]
             print(self.detected)
-            self.move_mouse()
-            self.clear_history()
+            # self.move_mouse()
+            if self.detected != 'front_stroke':
+                self.clear_history()
 
     def clear_history(self):
         for k in self.point_history.keys():
