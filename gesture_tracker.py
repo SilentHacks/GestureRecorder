@@ -168,8 +168,8 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            # print(gesture['name'], distances, mean)
-            if mean < 2:
+            print(gesture['name'], distances, mean)
+            if mean < (0.15 + 0.15 * len(distances)):
                 scores.append((gesture['name'], mean))
 
         if scores:
@@ -204,7 +204,6 @@ class GestureTracker:
                 self.mouse.move(-i, 0)
                 time.sleep(0.01)
 
-
     @staticmethod
     def handle_key(key: int) -> bool:
         """
@@ -225,6 +224,7 @@ class GestureTracker:
         :return:
         """
         with mp_pose.Pose(
+                model_complexity=1,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
         ) as pose:
@@ -239,7 +239,7 @@ class GestureTracker:
 
                 if results.pose_landmarks is not None:  # type: ignore
                     self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                    if len(self.point_history[23]) == MAX_POINT_HISTORY:
+                    if len(self.point_history[16]) == MAX_POINT_HISTORY:
                         self.detect_gesture()
 
                     for num in FOCUS_POINTS:

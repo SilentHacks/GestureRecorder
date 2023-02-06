@@ -4,6 +4,7 @@ from itertools import islice
 from fastdtw import fastdtw
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.spatial.distance as dist
+from scipy.signal import savgol_filter
 from scipy.spatial.distance import euclidean
 
 
@@ -209,22 +210,33 @@ def gaussian_filter_3d(points: list[tuple[int, int, int]], sigma: float = 1.0):
     return list(zip(x_values, y_values, z_values))
 
 
+def savgol_filter_points(points: list[tuple[int, int]], window_length: int, polyorder: int):
+    """Apply a Savitzky-Golay filter to the given points"""
+    x_values, y_values = zip(*points)
+    x_values = savgol_filter(x_values, window_length, polyorder, mode='nearest')
+    y_values = savgol_filter(y_values, window_length, polyorder, mode='nearest')
+
+    return list(zip(x_values, y_values))
+
+
 def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], relevant_landmarks: set[int] = None,
-                      plot: bool = False):
+                      disregard_landmarks: set[int] = None, plot: bool = False):
     """Process the landmark history to select relevant landmarks and simplify the tracking points"""
     # Select the relevant landmarks
     good_landmarks = select_landmarks(landmark_history).union(relevant_landmarks or set())
+    good_landmarks -= disregard_landmarks or set()
 
     # Simplify the tracking points for each landmark
     simplified_landmarks = {}
     for landmark_id in good_landmarks:
-        smoothed_points = np.array(gaussian_filter(landmark_history[landmark_id], sigma=1))
+        smoothed_points = np.array(gaussian_filter(landmark_history[landmark_id], sigma=2))
         smoothed_points -= np.mean(smoothed_points, axis=0)
 
         # smoothed_points = np.array(smooth_gesture(tracking_points))
+        # savgol the smoothed points
+        smoothed_points = savgol_filter_points(smoothed_points, 8, 3)
+        smoothed_points = simplify_gesture(smoothed_points, 0.01)
 
-        # Convert the smoothed points to a Python list
-        smoothed_points = smoothed_points.tolist()
         simplified_landmarks[landmark_id] = smoothed_points
 
         if plot:

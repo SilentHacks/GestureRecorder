@@ -7,6 +7,7 @@ import numpy as np
 from fastdtw import fastdtw
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.signal import savgol_filter
 from scipy.spatial.distance import euclidean
 
 from utils.tracking import process_landmarks, calculate_threshold, process_landmarks_3d, normalize_gesture
@@ -16,8 +17,8 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 
 FOCUS_POINTS = {
-    mp_pose.PoseLandmark.LEFT_HIP,
-    mp_pose.PoseLandmark.RIGHT_HIP,
+    # mp_pose.PoseLandmark.LEFT_HIP,
+    # mp_pose.PoseLandmark.RIGHT_HIP,
     # mp_pose.PoseLandmark.LEFT_KNEE,
     # mp_pose.PoseLandmark.RIGHT_KNEE,
     # mp_pose.PoseLandmark.LEFT_ANKLE,
@@ -42,7 +43,7 @@ def record(gesture_name, video_name):
 
     with mp_pose.Pose(
             static_image_mode=True,
-            model_complexity=2,
+            model_complexity=1,
             min_detection_confidence=0.5
     ) as pose:
         while cap.isOpened():
@@ -99,8 +100,8 @@ def record(gesture_name, video_name):
 
         cap.release()
 
-    print('Frames:', len(history[mp_pose.PoseLandmark.LEFT_HIP]))
-    print(history)
+    print('Frames:', len(history[mp_pose.PoseLandmark.RIGHT_WRIST.value]))
+    # print(history)
 
     # use = results.pose_world_landmarks
     # mp_drawing.plot_landmarks(use, mp_pose.POSE_CONNECTIONS)
@@ -124,12 +125,19 @@ gesture = 'front_stroke'
 
 
 def main():
-    history = record(gesture, '3')
+    history = record(gesture, '2')
     processed = process_landmarks(history, plot=True)
 
+    save_json(processed)
+
+    # print(get_gesture_complexity_score(processed), get_dtw_threshold(processed))
+
+
+def save_json(processed):
     to_save = {
         "name": gesture,
-        "points": processed
+        "points": processed,
+        # "threshold": get_dtw_threshold(processed)
     }
 
     with open(f'data/models/{gesture}.json', 'w') as f:
@@ -138,6 +146,36 @@ def main():
 
 def euclidean_weighted(a, b):
     return euclidean(a, b, w=[1, 1, 0.5])
+
+
+def get_gesture_complexity_score(points):
+    scores = []
+    for landmarks in points.values():
+        # Compute the average deviation of the landmarks from a smoothed curve
+        x = [l[0] for l in landmarks]
+        y = [l[1] for l in landmarks]
+        # smooth_x = np.convolve(x, np.ones(5) / 5, mode='same')
+        # smooth_y = np.convolve(y, np.ones(5) / 5, mode='same')
+
+        smooth_x = savgol_filter(x, 10, 3, mode='nearest')
+        smooth_y = savgol_filter(y, 10, 3, mode='nearest')
+
+        # plot smoothed curve
+        plt.plot(smooth_x, smooth_y)
+
+        deviation = np.sqrt((x - smooth_x) ** 2 + (y - smooth_y) ** 2)
+        score = np.mean(deviation)
+        scores.append(score)
+
+    plt.show()
+
+    return sum(scores)
+
+
+def get_dtw_threshold(points):
+    # Use the gesture complexity score to determine the DTW threshold
+    num_frames = len(points[next(iter(points))])
+    return round(2 * get_gesture_complexity_score(points) * num_frames, 2)
 
 
 def compare():
@@ -159,4 +197,4 @@ def compare():
 
 
 if __name__ == '__main__':
-    compare()
+    main()
