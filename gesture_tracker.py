@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.spatial.distance as dist
 from pynput.mouse import Controller
+from pynput.keyboard import Key, Controller as KeyboardController
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
 
@@ -43,6 +44,7 @@ class GestureTracker:
         self.ticket = True
         self.detected = ''
         self.mouse = Controller()
+        self.keyboard = KeyboardController()
         self.left = False
 
         self.gestures = self.load_gestures()
@@ -52,8 +54,9 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
+        include = ["kick", "punch"]
         for file in os.listdir("data/models"):
-            if file.endswith(".json"):
+            if file.endswith(".json") and file.split(".")[0] in include:
                 with open(os.path.join("data/models", file), "r") as f:
                     gestures.append(json.load(f))
 
@@ -122,7 +125,7 @@ class GestureTracker:
         # calculate distance between left and right shoulder
         landmark = results.pose_world_landmarks.landmark[num]
 
-        if landmark.visibility < 0.5:
+        if landmark.visibility < 0.7:
             return 0, 0
 
         # shoulder_distance = euclidean(
@@ -168,16 +171,17 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            print(gesture['name'], distances, mean)
-            if mean < (0.15 + 0.15 * len(distances)):
+            # print(gesture['name'], distances, mean)
+            threshold = 0.15 + 0.15 * len(distances)
+            if mean < threshold:
                 scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
-            self.color_keep = 20
+            self.color_keep = 10
             self.detected = scores[0][0]
-            print(self.detected)
-            # self.move_mouse()
+            print(self.detected, scores[0][1])
+            self.handle_input()
             if self.detected != 'front_stroke':
                 self.clear_history()
 
@@ -185,13 +189,13 @@ class GestureTracker:
         for k in self.point_history.keys():
             self.point_history[k].clear()
 
-    def move_mouse(self):
+    def handle_input(self):
         if self.detected == 'baseball_swing':
             self.mouse.position = (1100, 800)
             time.sleep(0.03)
 
             # Drag mouse to the left with deceleration
-            for i in range(50, 20, -1):
+            for i in range(60, 25, -1):
                 self.mouse.move(-i, -i)
                 time.sleep(0.01)
 
@@ -200,9 +204,58 @@ class GestureTracker:
             self.mouse.position = (1200, 400)
             time.sleep(0.03)
 
-            for i in range(50, 10, -1):
-                self.mouse.move(-i, 0)
+            for i in range(60, 25, -1):
+                self.mouse.move(-i, -i // 2)
                 time.sleep(0.01)
+
+        elif self.detected == 'back_swing':
+            # Drag mouse to the right with deceleration
+            self.mouse.position = (400, 400)
+            time.sleep(0.03)
+
+            for i in range(60, 25, -1):
+                self.mouse.move(i, -i // 2)
+                time.sleep(0.01)
+
+        elif self.detected == 'serve':
+            # self.mouse.position = (400, 400)
+            # time.sleep(0.01)
+            #
+            # for i in range(50, 20, -1):
+            #     self.mouse.move(i, 0)
+            #     time.sleep(0.01)
+            #
+            # time.sleep(0.1)
+            #
+            # for i in range(50, 20, -1):
+            #     self.mouse.move(-i, 0)
+            #     time.sleep(0.01)
+            self.keyboard.press('i')
+            time.sleep(0.03)
+            self.keyboard.release('i')
+
+            self.keyboard.press('s')
+            time.sleep(0.03)
+            self.keyboard.release('s')
+
+            self.keyboard.press('i')
+            time.sleep(0.03)
+            self.keyboard.release('i')
+
+            self.keyboard.press('s')
+            time.sleep(0.03)
+            self.keyboard.release('s')
+
+        elif self.detected == 'punch':
+            self.keyboard.press(Key.enter)
+            time.sleep(0.04)
+            self.keyboard.release(Key.enter)
+
+        elif self.detected == 'punch_left':
+            self.keyboard.press('a')
+            time.sleep(0.04)
+            self.keyboard.release('a')
+
 
     @staticmethod
     def handle_key(key: int) -> bool:
@@ -223,8 +276,11 @@ class GestureTracker:
 
         :return:
         """
+
+        display = True
+
         with mp_pose.Pose(
-                model_complexity=1,
+                model_complexity=0,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
         ) as pose:
@@ -232,14 +288,21 @@ class GestureTracker:
             while True:
                 _, frame = self.capture.read()
 
+                # left half
+                # frame = frame[:, int(frame.shape[1] / 2):]
+
+                # right half
+                # frame = frame[:, :int(frame.shape[1] / 2)]
+
                 # To improve performance, mark the image as not writeable to pass by reference
                 frame.flags.writeable = False
                 results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 frame.flags.writeable = True
 
                 if results.pose_landmarks is not None:  # type: ignore
-                    self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                    if len(self.point_history[16]) == MAX_POINT_HISTORY:
+                    if display:
+                        self.draw_landmarks(frame=frame, results=results)  # type: ignore
+                    if len(self.point_history[list(self.point_history.keys())[0]]) == MAX_POINT_HISTORY:
                         self.detect_gesture()
 
                     for num in FOCUS_POINTS:
@@ -247,13 +310,14 @@ class GestureTracker:
 
                 # print(self.point_history)
                 # print(self.gesture_history)
+                #
+                if display:
+                    cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
-                cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
+                    key = cv2.waitKey(1)
 
-                key = cv2.waitKey(1)
-
-                if self.handle_key(key=key):
-                    break
+                    if self.handle_key(key=key):
+                        break
 
 
 if __name__ == '__main__':

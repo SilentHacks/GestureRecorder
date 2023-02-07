@@ -17,12 +17,12 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 
 FOCUS_POINTS = {
-    # mp_pose.PoseLandmark.LEFT_HIP,
-    # mp_pose.PoseLandmark.RIGHT_HIP,
-    # mp_pose.PoseLandmark.LEFT_KNEE,
-    # mp_pose.PoseLandmark.RIGHT_KNEE,
-    # mp_pose.PoseLandmark.LEFT_ANKLE,
-    # mp_pose.PoseLandmark.RIGHT_ANKLE,
+    mp_pose.PoseLandmark.LEFT_HIP,
+    mp_pose.PoseLandmark.RIGHT_HIP,
+    mp_pose.PoseLandmark.LEFT_KNEE,
+    mp_pose.PoseLandmark.RIGHT_KNEE,
+    mp_pose.PoseLandmark.LEFT_ANKLE,
+    mp_pose.PoseLandmark.RIGHT_ANKLE,
     mp_pose.PoseLandmark.LEFT_SHOULDER,
     mp_pose.PoseLandmark.RIGHT_SHOULDER,
     mp_pose.PoseLandmark.LEFT_ELBOW,
@@ -35,7 +35,7 @@ FOCUS_POINTS = {
 def record(gesture_name, video_name):
     # Set the Video stream
     cap = cv2.VideoCapture(
-        os.path.join("data", "videos", gesture_name, f"{video_name}.mp4")
+        os.path.join("data", "videos", gesture_name, f"{video_name}.mov")
     )
 
     history = {num.value: [] for num in FOCUS_POINTS}
@@ -100,7 +100,7 @@ def record(gesture_name, video_name):
 
         cap.release()
 
-    print('Frames:', len(history[mp_pose.PoseLandmark.RIGHT_WRIST.value]))
+    print('Frames:', len(history[list(history.keys())[0]]))
     # print(history)
 
     # use = results.pose_world_landmarks
@@ -121,11 +121,11 @@ def record(gesture_name, video_name):
     return history
 
 
-gesture = 'front_stroke'
+gesture = 'punch_left'
 
 
 def main():
-    history = record(gesture, '2')
+    history = record(gesture, '3')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)
@@ -142,6 +142,22 @@ def save_json(processed):
 
     with open(f'data/models/{gesture}.json', 'w') as f:
         json.dump(to_save, f)
+
+
+def plot_json():
+    with open('data/models/baseball_swing.json', 'r') as f:
+        data = json.load(f)
+
+    for landmark_id, points in data['points'].items():
+        landmark_id = int(landmark_id)
+        x = [l[0] for l in points]
+        y = [l[1] for l in points]
+
+        color = np.array([landmark_id * 100 % 255, landmark_id * 200 % 255, landmark_id * 300 % 255]) / 255
+        plt.plot(x, y, color=color, label=f'Landmark {landmark_id}')
+
+    plt.legend()
+    plt.show()
 
 
 def euclidean_weighted(a, b):

@@ -220,11 +220,11 @@ def savgol_filter_points(points: list[tuple[int, int]], window_length: int, poly
 
 
 def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], relevant_landmarks: set[int] = None,
-                      disregard_landmarks: set[int] = None, plot: bool = False):
+                      exclude_landmarks: set[int] = None, plot: bool = False):
     """Process the landmark history to select relevant landmarks and simplify the tracking points"""
     # Select the relevant landmarks
     good_landmarks = select_landmarks(landmark_history).union(relevant_landmarks or set())
-    good_landmarks -= disregard_landmarks or set()
+    good_landmarks -= exclude_landmarks or set()
 
     # Simplify the tracking points for each landmark
     simplified_landmarks = {}
