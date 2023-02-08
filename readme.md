@@ -32,5 +32,5 @@ using a similar approach.
 - [ ] Add a GUI
 - [ ] Add a way to save/load the poses to/from a file
 - [ ] Change the detection to be able to handle multiple poses
-- [ ] Add a way to calibrate the detection per pose / user's hand size
-- [ ] Look into KNIFT/SIFT for pose detection / on-device training?
+- [ ] ~~Add a way to calibrate the detection per pose / user's hand size~~
+- [ ] ~~Look into KNIFT/SIFT for pose detection / on-device training?~~
