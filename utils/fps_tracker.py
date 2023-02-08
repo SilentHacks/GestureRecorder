@@ -1,3 +1,9 @@
+"""
+Credit to 高橋かずひと(https://twitter.com/KzhtTkhs) for this FPS tracker.
+You can check it here:
+https://github.com/Kazuhito00/hand-gesture-recognition-using-mediapipe/blob/main/utils/cvfpscalc.py
+"""
+
 from collections import deque
 
 from cv2 import getTickCount, getTickFrequency
