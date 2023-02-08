@@ -1,22 +1,19 @@
+import json
+import os
+
 import cv2
+import numpy as np
 
 from utils.config import mp_hands, mp_drawing
 from utils.fps_tracker import FPSTracker
 
 NUM_LANDMARKS = 21
-INFO_TEXT = ('"S" to save the gesture\n'
-             '"D" to delete the gesture\n'
-             '"ESC" to quit\n\n'
-             '"1", "2", or "3" to change the strategy.')
-
-STRATEGY_PARAMS = {
-    1: (0.5, 0.8),
-    2: (0.4, 0.95),
-    3: (0.3, 0.99)
-}
+INFO_TEXT = ('"S" to save the pose\n'
+             '"D" to delete the pose\n'
+             '"ESC" to quit')
 
 
-class Recorder:
+class PoseRecorder:
     def __init__(
             self,
             camera: int = 0,
@@ -24,9 +21,9 @@ class Recorder:
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
             min_tracking_confidence: float = 0.7,
-            gesture_leniency: float = 0.5,
-            gesture_threshold: float = 0.8,
-            strategy: int = 1
+            pose_leniency: float = 0.3,
+            pose_threshold: float = 0.99,
+            save_dir: str = 'data/models/poses'
     ):
         """
         Initialize the recorder.
@@ -36,19 +33,19 @@ class Recorder:
         :param static_image_mode: whether each frame is a static image or a video
         :param min_detection_confidence: the minimum confidence for detection
         :param min_tracking_confidence: the minimum confidence for tracking
-        :param gesture_leniency: the leniency of the gesture (0-1)
-        :param gesture_threshold: the threshold of the gesture (0-1)
-        :param strategy: the strategy to use for calculating ratios (1-3)
+        :param pose_leniency: the leniency of the pose (0-1)
+        :param pose_threshold: the threshold of the pose (0-1)
         """
         self.capture = cv2.VideoCapture(camera)
         self.num_hands = num_hands
         self.static_image_mode = static_image_mode
         self.min_detection_confidence = min_detection_confidence
         self.min_tracking_confidence = min_tracking_confidence
-        self.gesture_leniency = gesture_leniency
-        self.gesture_threshold = gesture_threshold
-        self.strategy = strategy
-        self.gesture = None
+        self.pose_leniency = pose_leniency
+        self.pose_threshold = pose_threshold
+        self.save_dir = save_dir
+        self.pose = ''
+        self.poses = self.load_poses(save_dir=save_dir)
         self.detected = False
 
     def __del__(self):
@@ -94,23 +91,13 @@ class Recorder:
         cv2.putText(image, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
-        cv2.putText(image, f'STRATEGY: {self.strategy}', (10, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1,
-                    cv2.LINE_AA)
-
-        if self.gesture:
-            color = (0, 255, 0)
+        if self.pose:
+            text = f'POSE {self.pose} DETECTED'
         else:
-            color = (0, 0, 255)
+            text = 'NO POSE DETECTED'
 
-        cv2.circle(image, (image.shape[1] - 30, 30), 20, color, -1)
-
-        if self.gesture:
-            text = 'GESTURE STORED'
-        else:
-            text = 'NO GESTURE STORED'
-
-        cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 4, cv2.LINE_AA)
+        cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2, cv2.LINE_AA)
 
         # Split INFO_TEXT on newline characters
         info_text = INFO_TEXT.split('\n')
@@ -119,203 +106,99 @@ class Recorder:
 
         return image
 
-    def save_gesture(self, ratios: list[float]):
+    def save_pose(self, ratios: np.ndarray):
         """
-        Save the gesture to be checked later.
+        Save the pose to be checked later.
         :param ratios: list of ratios
         :return:
         """
-        self.gesture = ratios
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
-    def clear_gesture(self):
+        pose_name = f'{len(os.listdir(self.save_dir)) + 1}'
+        with open(f'{self.save_dir}/{pose_name}.json', 'w') as f:
+            json.dump(ratios.tolist(), f)
+
+        self.poses[pose_name] = ratios
+
+    @staticmethod
+    def load_poses(save_dir: str):
         """
-        Clear the gesture.
+        Load all poses from the data/models/poses directory.
         :return:
         """
-        self.gesture = None
+        poses = {}
+        if not os.path.exists(save_dir):
+            return poses
+
+        for file in os.listdir(save_dir):
+            with open(f'{save_dir}/{file}', 'r') as f:
+                poses[file[:-5]] = np.array(json.load(f))
+
+        return poses
+
+    def clear_pose(self):
+        """
+        Clear the pose.
+        :return:
+        """
+        self.poses.clear()
         self.detected = False
 
-    def check_gesture(self, ratios: list[float], gesture=None):
+    def check_pose(self, ratios: np.ndarray):
         """
-        Check if the gesture is within the leniency and threshold of the saved gesture.
+        Check if the pose is within the leniency and threshold of the saved pose.
 
         :param ratios: list of ratios
-        :param gesture: gesture to check against
-        :return: True if gesture surpasses threshold, False otherwise
+        :return: True if pose surpasses threshold, False otherwise
         """
-        # correct = 0
-        # for i in range(len(ratios)):
-        #     if abs(ratios[i] - self.gesture[i]) < self.gesture_leniency:
-        #         correct += 1
-        #
-        # return correct > self.gesture_threshold * len(ratios)
+        wrong_threshold = len(ratios) * (1 - self.pose_threshold)
+        scores = []
+        for name, pose in self.poses.items():
+            deviations = np.abs(ratios - pose)
+            wrong = np.sum(deviations > self.pose_leniency)
+            if wrong <= wrong_threshold:
+                scores.append((name, np.mean(deviations)))
 
-        # This is a more optimized version of the above code
-        gesture = gesture or self.gesture
-        wrong = 0
-        wrong_threshold = len(ratios) * (1 - self.gesture_threshold)
-        for i in range(len(ratios)):
-            if abs(ratios[i] - gesture[i]) > self.gesture_leniency:
-                wrong += 1
+        if scores:
+            scores.sort(key=lambda x: x[1])
+            self.pose = scores[0][0]
+            return True
 
-            if wrong > wrong_threshold:
-                return False
-
-        return True
-
-    def calculate_ratios(self, hand_landmarks) -> list[float]:
-        """
-        Helper function to calculate the ratios based on the strategy.
-        :param hand_landmarks: hand landmarks
-        :return: list of ratios
-        """
-        if self.strategy == 1:
-            return self.calculate_ratios_1(hand_landmarks)
-        elif self.strategy == 2:
-            return self.calculate_ratios_2(hand_landmarks)
-
-        return self.calculate_distances(hand_landmarks)
+        self.pose = None
+        return False
 
     @staticmethod
-    def calculate_ratios_1(hand_landmarks) -> list[float]:
-        """
-        Calculate ratios of x and y coordinates to and from all landmarks.
-        This does not work with rotation of the hand and creates an array of size 210.
-        Has good accuracy with gesture_leniency ~0.5 and threshold ~0.8.
-
-        Does not allow for rotations. Despite having the best accuracy, it is not recommended
-        as the array is too large and the accuracy is too precise anyway.
-
-        :param hand_landmarks: hand landmarks
-        :return: list of ratios
-        """
-        ratios = []
-        for i in range(NUM_LANDMARKS):
-            for j in range(i + 1, NUM_LANDMARKS):
-                ratios.append(
-                    (hand_landmarks.landmark[i].x - hand_landmarks.landmark[j].x) / (
-                            hand_landmarks.landmark[i].y - hand_landmarks.landmark[j].y))
-
-        return ratios
-
-    @staticmethod
-    def calculate_ratios_2(hand_landmarks) -> list[float]:
-        """
-        Calculate ratios of x and y coordinates from landmark 0.
-        Works well with gesture_leniency 0.4 and threshold 0.95.
-        This does not work with rotation of the hand.
-        Creates an array of size 42.
-
-        :param hand_landmarks: hand landmarks
-        :return: list of ratios
-        """
-        ratios = []
-        max_value = 0
-        zero_x = hand_landmarks.landmark[0].x
-        zero_y = hand_landmarks.landmark[0].y
-        for landmark in hand_landmarks.landmark:
-            # Convert to relative coordinate from landmark 0
-            x = landmark.x - zero_x
-            y = landmark.y - zero_y
-            ratios.append(x)
-            ratios.append(y)
-
-            # Find max value
-            max_value = max(max_value, x, y)
-
-        # Normalize to 0-1
-        max_value = abs(max_value)
-        for i in range(len(ratios)):
-            ratios[i] /= max_value
-
-        return ratios
-
-    @staticmethod
-    def calculate_distances(hand_landmarks) -> list[float]:
+    def calculate_ratios(hand_landmarks) -> np.ndarray:
         """
         Similar to calculate_ratios_2, but instead of ratios,
         we calculate distances from landmark 0, normalized to 0-1.
-        This works pretty well with gesture_leniency 0.3 and threshold 0.99.
+        This works pretty well with pose_leniency 0.3 and threshold 0.99.
         The advantage of this method is that it allows for any rotation of the hand, in any plane.
         Creates an array of size 21.
 
         :param hand_landmarks: hand landmarks
-        :return: list of distances from landmark 0, normalized to 0-1
+        :return: numpy array of distances from landmark 0, normalized to 0-1
         """
-        distances = []
-        max_value = 0
-        zero_x = hand_landmarks.landmark[0].x
-        zero_y = hand_landmarks.landmark[0].y
+        x = []
+        y = []
         for landmark in hand_landmarks.landmark:
-            # Find distance from landmark 0
-            x = landmark.x - zero_x
-            y = landmark.y - zero_y
-            dist = x ** 2 + y ** 2  # For optimization, we don't need to sqrt
-            distances.append(dist)
+            x.append(landmark.x)
+            y.append(landmark.y)
 
-            # Find max value
-            max_value = max(max_value, dist)
+        x = np.array(x)
+        y = np.array(y)
 
-        # Normalize to 0-1
-        max_value = abs(max_value)
-        for i in range(len(distances)):
-            distances[i] /= max_value
+        zero_x, zero_y = x[0], y[0]
+        x -= zero_x
+        y -= zero_y
+
+        distances = np.square(x) + np.square(y)
+        distances /= np.max(distances)
 
         return distances
 
-    # The following methods are for the SIFT method
-    # These are provided just for testing, it's pretty hard to get it working
-
-    @staticmethod
-    def normalize_landmark_to_pixel(landmark, image):
-        height, width, _ = image.shape
-        # Cap to max height and width
-        x = min(int(landmark.x * width), width - 1)
-        y = min(int(landmark.y * height), height - 1)
-
-        return x, y
-
-    @staticmethod
-    def calculate_sift_descriptors(image, hand_landmarks):
-        sift = cv2.SIFT_create()
-        kp = []
-        for landmark in hand_landmarks.landmark:
-            x, y = Recorder.normalize_landmark_to_pixel(landmark, image)
-            kp.append(cv2.KeyPoint(x=x, y=y, size=1))
-
-        kp, des = sift.compute(image, kp)
-
-        return des
-
-    def detect_sift(self, image, hand_landmarks):
-        des = self.calculate_sift_descriptors(image, hand_landmarks)
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des, self.gesture, k=2)
-        good = []
-        for m, n in matches:
-            if m.distance < self.gesture_leniency * n.distance:
-                good.append([m])
-
-        self.detected = len(good) > self.gesture_threshold * len(matches)
-
-    def detect_pose(self, image, hand_landmarks):
-        descriptors = self.calculate_sift_descriptors(image=image, hand_landmarks=hand_landmarks)
-
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)
-
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
-        matches = flann.knnMatch(descriptors, self.gesture, k=2)
-
-        good = []
-        for m, n in matches:
-            if m.distance < self.gesture_leniency * n.distance:
-                good.append(m)
-
-        self.detected = len(good) > self.gesture_threshold * len(matches)
-
-    def handle_key(self, key: int, ratios: list[float] = None, hand_landmarks=None) -> bool:
+    def handle_key(self, key: int, ratios: np.ndarray = None, hand_landmarks=None) -> bool:
         """
         Handle key presses.
 
@@ -327,22 +210,19 @@ class Recorder:
         if key == 27:  # ESC
             return True
 
-        if 49 <= key <= 51:  # 1-3
-            self.strategy = key - 48
-            self.gesture_leniency, self.gesture_threshold = STRATEGY_PARAMS[self.strategy]
-            self.clear_gesture()
-        elif key == 100:  # D:
-            self.clear_gesture()
+        if key == 100:  # D:
+            self.clear_pose()
         elif key == 115:  # S:
-            self.save_gesture(ratios=ratios or self.calculate_ratios(hand_landmarks=hand_landmarks))
-            # if hand_landmarks:
-            #     self.gesture = self.calculate_sift_descriptors(image=frame, hand_landmarks=hand_landmarks)
+            if ratios is None:
+                ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
+
+            self.save_pose(ratios=ratios)
 
         return False
 
     def record(self):
         """
-        Record gestures and save them when the user presses the "S" key.
+        Record poses and save them when the user presses the "S" key.
 
         :return:
         """
@@ -365,10 +245,9 @@ class Recorder:
                 ratios = None
                 if results.multi_hand_landmarks is not None:  # type: ignore
                     hand_landmarks = self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                    if self.gesture is not None:
-                        # self.detect_pose(image=frame, hand_landmarks=hand_landmarks)
+                    if self.poses:
                         ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
-                        self.detected = self.check_gesture(ratios=ratios)
+                        self.detected = self.check_pose(ratios=ratios)
 
                 cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
@@ -378,5 +257,5 @@ class Recorder:
 
 
 if __name__ == '__main__':
-    recorder = Recorder()
+    recorder = PoseRecorder()
     recorder.record()
