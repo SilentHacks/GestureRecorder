@@ -33,6 +33,10 @@ def simplify_gesture(points: np.ndarray, tolerance: float):
     # Find the point with the maximum distance from the line segment formed by the start and end points
     start, end = points[0], points[-1]
 
+    # Handle the case where we might divide by zero
+    if np.all(start == end):
+        return [points[0], points[-1]]
+
     distances = np.abs(np.cross(end - start, start - points[1:-1])) / np.linalg.norm(end - start)
 
     if not distances.size:
@@ -78,9 +82,11 @@ def savgol_filter_points(points: np.ndarray, window_length: int, polyorder: int)
 def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     """Select the relevant landmarks from the tracking points based on the variance of its signal"""
     good_landmarks = set()
+    numpy_landmarks = {}
+
     for landmark_id, tracking_points in landmark_history.items():
         tracking_points = np.array(tracking_points)
-        landmark_history[landmark_id] = tracking_points  # type: ignore
+        numpy_landmarks[landmark_id] = tracking_points
         # Smooth the tracking points using a median filter with r=3
         # smoothed_points = laplacian_smoothing(tracking_points)
 
@@ -94,21 +100,24 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
         if x_var > 0.1 or y_var > 0.1:
             good_landmarks.add(landmark_id)
 
-    # print(len(good_landmarks))
-    return good_landmarks
+    return good_landmarks, numpy_landmarks
 
 
 def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], include_landmarks: set[int] = None,
                       exclude_landmarks: set[int] = None, plot: bool = False):
     """Process the landmark history to select relevant landmarks and simplify the tracking points"""
     # Select the relevant landmarks
-    good_landmarks = select_landmarks(landmark_history).union(include_landmarks or set())
-    good_landmarks -= exclude_landmarks or set()
+    good_landmarks, numpy_landmarks = select_landmarks(landmark_history)
+
+    if include_landmarks:
+        good_landmarks |= include_landmarks
+    if exclude_landmarks:
+        good_landmarks -= exclude_landmarks
 
     # Simplify the tracking points for each landmark
     simplified_landmarks = {}
     for landmark_id in good_landmarks:
-        smoothed_points = np.array(gaussian_filter(landmark_history[landmark_id], sigma=2))  # type: ignore
+        smoothed_points = np.array(gaussian_filter(numpy_landmarks[landmark_id], sigma=2))
         smoothed_points -= np.mean(smoothed_points, axis=0)
 
         # smoothed_points = np.array(smooth_gesture(tracking_points))
