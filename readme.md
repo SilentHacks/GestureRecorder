@@ -27,11 +27,11 @@ Gestures are dynamic full body movements. Some complicated algorithms track coor
 
 1. Clone the repository
 2. Install the requirements using `pip install -r requirements.txt`
-3. Run the program using `python recorder.py`
+3. Run the program using `python pose_recorder.py`
 
 ## Usage
 
-1. Run the program
+1. Run the pose recorder program
 2. Press `S` to save a pose
 3. Press `D` to delete the last pose
 4. Press `1`-`3` to switch between the 3 detection strategies
