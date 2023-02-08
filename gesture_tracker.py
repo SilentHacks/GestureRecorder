@@ -1,29 +1,20 @@
+import json
 import os
 import time
-from collections import deque, Counter
-import json
+from collections import deque
 
 import cv2
-import numpy as np
-import mediapipe
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import scipy.spatial.distance as dist
+from fastdtw import fastdtw
 from pynput.mouse import Controller
 from pynput.keyboard import Key, Controller as KeyboardController
 from scipy.spatial.distance import euclidean
-from fastdtw import fastdtw
 
-from recorder import Recorder, STRATEGY_PARAMS, draw_module
-from video_recorder import FOCUS_POINTS
+from pose_recorder import mp_drawing
+from utils.config import FOCUS_POINTS, mp_pose
 from utils.fps_tracker import FPSTracker
-from utils.tracking import normalize_gesture, smooth_gesture, laplacian_smoothing, normalize_gesture_2d, \
-    simplify_gesture, laplacian_smoothing_3d, simplify_gesture_3d, process_landmarks, process_landmarks_3d
+from utils.tracker_2d import process_landmarks
 
-mp_pose = mediapipe.solutions.pose
-
-MAX_POINT_HISTORY = 25
-
+BUFFER_SIZE = 25
 MOVE_MOUSE = False
 
 
@@ -35,21 +26,13 @@ class GestureTracker:
         :param camera: camera ID to use
         """
         self.capture = cv2.VideoCapture(camera)
-        self.point_history = {num.value: deque(maxlen=MAX_POINT_HISTORY) for num in FOCUS_POINTS}
-        self.gesture_history: deque[str] = deque(maxlen=MAX_POINT_HISTORY)
-        self.landmark_history = deque(maxlen=MAX_POINT_HISTORY)
+        self.point_history = {num.value: deque(maxlen=BUFFER_SIZE) for num in FOCUS_POINTS}
         self.color_keep = 0
-        self.first_frame = None
-        self.last_frame = None
-        self.ticket = True
         self.detected = ''
         self.mouse = Controller()
         self.keyboard = KeyboardController()
-        self.left = False
 
         self.gestures = self.load_gestures()
-
-        # self.gesture = self.calculate_points(EXAMPLE_DATA)
 
     @staticmethod
     def load_gestures():
@@ -85,12 +68,12 @@ class GestureTracker:
         :return:
         """
         color = self.color
-        draw_module.draw_landmarks(
+        mp_drawing.draw_landmarks(
             image=frame,
             landmark_list=results.pose_landmarks,
             connections=mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2),
-            connection_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2)
+            landmark_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2),
+            connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)
         )
 
     def draw_info(self, image, fps: int):
@@ -106,54 +89,22 @@ class GestureTracker:
                     cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2,
                     cv2.LINE_AA)
 
-        # if self.gesture:
-        #     text = 'GESTURE STORED'
-        # else:
-        #     text = 'NO GESTURE STORED'
-        #
-        # cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-
-        # Split INFO_TEXT on newline characters
-        # info_text = INFO_TEXT.split('\n')
-        # for i, line in enumerate(info_text):
-        #     cv2.putText(image, line, (10, 150 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-
         return image
 
     @staticmethod
     def get_centre_point(results, num):
-        # calculate distance between left and right shoulder
         landmark = results.pose_world_landmarks.landmark[num]
 
         if landmark.visibility < 0.7:
             return 0, 0
 
-        # shoulder_distance = euclidean(
-        #     (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x,
-        #      results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y),
-        #     (results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
-        #      results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y)
-        # )
-        # neck_x = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x +
-        #           results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x) / 2
-        # neck_y = (results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y +
-        #           results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
-        # Normalize the coordinates to the shoulder width
-        # x = min(int((landmark.x - neck_x) / shoulder_distance * width), width - 1)
-        # y = min(int((landmark.y - neck_y) / shoulder_distance * width), height - 1)
-        # x = (landmark.x - neck_x) / shoulder_distance
-        # y = (landmark.y - neck_y) / shoulder_distance
-
-        x = landmark.x
-        y = landmark.y
-
-        return x, y
+        return landmark.x, landmark.y
 
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
             landmark_ids = {int(idx) for idx in gesture['points'].keys()}
-            processed = process_landmarks(self.point_history, relevant_landmarks=landmark_ids)
+            processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
 
             distances = []
             for landmark_id, points in gesture['points'].items():
@@ -161,13 +112,12 @@ class GestureTracker:
                 for coord in processed[int(landmark_id)]:
                     if coord[0] == 0 and coord[1] == 0:
                         count += 1
-                        if count > MAX_POINT_HISTORY / 2:
+                        if count > BUFFER_SIZE / 2:
                             break
-                if count > MAX_POINT_HISTORY / 2:
+                if count > BUFFER_SIZE / 2:
                     return
 
                 distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
-                # distance = calculate_threshold(points, processed[int(landmark_id)])
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
@@ -180,8 +130,8 @@ class GestureTracker:
             scores.sort(key=lambda x: x[1])
             self.color_keep = 10
             self.detected = scores[0][0]
-            print(self.detected, scores[0][1])
-            self.handle_input()
+            # print(self.detected, scores[0][1])
+            # self.handle_input()
             if self.detected != 'front_stroke':
                 self.clear_history()
 
@@ -190,6 +140,7 @@ class GestureTracker:
             self.point_history[k].clear()
 
     def handle_input(self):
+        """Before you freak out, this is just for testing."""
         if self.detected == 'baseball_swing':
             self.mouse.position = (1100, 800)
             time.sleep(0.03)
@@ -218,18 +169,6 @@ class GestureTracker:
                 time.sleep(0.01)
 
         elif self.detected == 'serve':
-            # self.mouse.position = (400, 400)
-            # time.sleep(0.01)
-            #
-            # for i in range(50, 20, -1):
-            #     self.mouse.move(i, 0)
-            #     time.sleep(0.01)
-            #
-            # time.sleep(0.1)
-            #
-            # for i in range(50, 20, -1):
-            #     self.mouse.move(-i, 0)
-            #     time.sleep(0.01)
             self.keyboard.press('i')
             time.sleep(0.03)
             self.keyboard.release('i')
@@ -256,7 +195,6 @@ class GestureTracker:
             time.sleep(0.04)
             self.keyboard.release('a')
 
-
     @staticmethod
     def handle_key(key: int) -> bool:
         """
@@ -270,14 +208,13 @@ class GestureTracker:
 
         return False
 
-    def run(self):
+    def run(self, display: bool = True):
         """
         Record gestures and save them when the user presses the "S" key.
 
+        :param display: whether to display the video feed
         :return:
         """
-
-        display = True
 
         with mp_pose.Pose(
                 model_complexity=0,
@@ -288,12 +225,6 @@ class GestureTracker:
             while True:
                 _, frame = self.capture.read()
 
-                # left half
-                # frame = frame[:, int(frame.shape[1] / 2):]
-
-                # right half
-                # frame = frame[:, :int(frame.shape[1] / 2)]
-
                 # To improve performance, mark the image as not writeable to pass by reference
                 frame.flags.writeable = False
                 results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -302,20 +233,17 @@ class GestureTracker:
                 if results.pose_landmarks is not None:  # type: ignore
                     if display:
                         self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                    if len(self.point_history[list(self.point_history.keys())[0]]) == MAX_POINT_HISTORY:
+                    if len(self.point_history[list(self.point_history.keys())[0]]) == BUFFER_SIZE:
                         self.detect_gesture()
 
                     for num in FOCUS_POINTS:
-                        self.point_history[num.value].append(self.get_centre_point(results=results, num=num.value))
+                        self.point_history[num.value].append(
+                            self.get_centre_point(results=results, num=num.value))  # type: ignore
 
-                # print(self.point_history)
-                # print(self.gesture_history)
-                #
                 if display:
-                    cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
+                    cv2.imshow('Gesture Tracker', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
                     key = cv2.waitKey(1)
-
                     if self.handle_key(key=key):
                         break
 

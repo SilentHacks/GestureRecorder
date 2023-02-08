@@ -2,32 +2,13 @@ import json
 import os
 
 import cv2
-import mediapipe as mp
 import numpy as np
 from fastdtw import fastdtw
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import euclidean
 
+from utils.config import FOCUS_POINTS, mp_drawing, mp_pose, draw_style
 from utils.tracker_2d import process_landmarks
-
-mp_pose = mp.solutions.pose
-mp_drawing = mp.solutions.drawing_utils
-draw_style = mp.solutions.drawing_styles.get_default_pose_landmarks_style()
-
-FOCUS_POINTS = {
-    mp_pose.PoseLandmark.LEFT_HIP,
-    mp_pose.PoseLandmark.RIGHT_HIP,
-    mp_pose.PoseLandmark.LEFT_KNEE,
-    mp_pose.PoseLandmark.RIGHT_KNEE,
-    mp_pose.PoseLandmark.LEFT_ANKLE,
-    mp_pose.PoseLandmark.RIGHT_ANKLE,
-    mp_pose.PoseLandmark.LEFT_SHOULDER,
-    mp_pose.PoseLandmark.RIGHT_SHOULDER,
-    mp_pose.PoseLandmark.LEFT_ELBOW,
-    mp_pose.PoseLandmark.RIGHT_ELBOW,
-    mp_pose.PoseLandmark.LEFT_WRIST,
-    mp_pose.PoseLandmark.RIGHT_WRIST
-}
 
 
 def record(gesture_name, file_name):

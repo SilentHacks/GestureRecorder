@@ -1,10 +1,7 @@
 import cv2
-import mediapipe
 
+from utils.config import mp_hands, mp_drawing
 from utils.fps_tracker import FPSTracker
-
-draw_module = mediapipe.solutions.drawing_utils
-hands_module = mediapipe.solutions.hands
 
 NUM_LANDMARKS = 21
 INFO_TEXT = ('"S" to save the gesture\n'
@@ -43,7 +40,6 @@ class Recorder:
         :param gesture_threshold: the threshold of the gesture (0-1)
         :param strategy: the strategy to use for calculating ratios (1-3)
         """
-        self.countdown = 30
         self.capture = cv2.VideoCapture(camera)
         self.num_hands = num_hands
         self.static_image_mode = static_image_mode
@@ -54,8 +50,6 @@ class Recorder:
         self.strategy = strategy
         self.gesture = None
         self.detected = False
-        self.is_recording = False
-        self.start_countdown = False
 
     def __del__(self):
         cv2.destroyAllWindows()
@@ -84,12 +78,12 @@ class Recorder:
         hand_landmarks = None
         color = self.color
         for hand_landmarks in results.multi_hand_landmarks:
-            draw_module.draw_landmarks(
+            mp_drawing.draw_landmarks(
                 image=frame,
                 landmark_list=hand_landmarks,
-                connections=hands_module.HAND_CONNECTIONS,
-                landmark_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2),
-                connection_drawing_spec=draw_module.DrawingSpec(color=color, thickness=2, circle_radius=2)
+                connections=mp_hands.HAND_CONNECTIONS,
+                landmark_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2),
+                connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)
             )
 
         return hand_landmarks
@@ -107,13 +101,7 @@ class Recorder:
         if self.gesture:
             color = (0, 255, 0)
         else:
-            if self.countdown < 30:
-                if self.countdown == 0:
-                    color = (0, 255, 0)
-                else:
-                    color = (0, 255, 255)
-            else:
-                color = (0, 0, 255)
+            color = (0, 0, 255)
 
         cv2.circle(image, (image.shape[1] - 30, 30), 20, color, -1)
 
@@ -358,7 +346,7 @@ class Recorder:
 
         :return:
         """
-        with hands_module.Hands(
+        with mp_hands.Hands(
                 static_image_mode=self.static_image_mode,
                 min_detection_confidence=self.min_detection_confidence,
                 min_tracking_confidence=self.min_tracking_confidence,
