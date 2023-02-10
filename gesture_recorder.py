@@ -67,7 +67,7 @@ def main():
 
 
 def save_json(processed):
-    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
+    with open(f'data/models/gestures/{gesture}.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 
