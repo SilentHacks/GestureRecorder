@@ -67,12 +67,12 @@ def main():
 
 
 def save_json(processed):
-    with open(f'data/models/{gesture}.json', 'w') as f:
+    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 
 def plot_json():
-    with open(f'data/models/{gesture}.json', 'r') as f:
+    with open(f'data/models/gestures/{gesture}.json', 'r') as f:
         data = json.load(f)
 
     for landmark_id, points in data['points'].items():
@@ -87,7 +87,7 @@ def plot_json():
 
 
 def compare():
-    with open(f'data/models/{gesture}.json', 'r') as f:
+    with open(f'data/models/gestures/{gesture}.json', 'r') as f:
         model = json.load(f)
 
     history = record(gesture, '2')
