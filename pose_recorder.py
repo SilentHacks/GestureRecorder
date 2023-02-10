@@ -21,6 +21,7 @@ class PoseRecorder:
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
             min_tracking_confidence: float = 0.7,
+            model_complexity: int = 0,
             pose_leniency: float = 0.3,
             pose_threshold: float = 0.99,
             save_dir: str = 'data/models/poses'
@@ -41,6 +42,7 @@ class PoseRecorder:
         self.static_image_mode = static_image_mode
         self.min_detection_confidence = min_detection_confidence
         self.min_tracking_confidence = min_tracking_confidence
+        self.model_complexity = model_complexity
         self.pose_leniency = pose_leniency
         self.pose_threshold = pose_threshold
         self.save_dir = save_dir
@@ -230,7 +232,8 @@ class PoseRecorder:
                 static_image_mode=self.static_image_mode,
                 min_detection_confidence=self.min_detection_confidence,
                 min_tracking_confidence=self.min_tracking_confidence,
-                max_num_hands=self.num_hands
+                max_num_hands=self.num_hands,
+                model_complexity=self.model_complexity
         ) as hands:
             fps_tracker = FPSTracker()
             while True:
