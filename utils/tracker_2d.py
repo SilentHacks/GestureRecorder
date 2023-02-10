@@ -28,32 +28,31 @@ def laplacian_smoothing(tracking_points: np.ndarray):
     return smoothed_points
 
 
-def simplify_gesture(points: np.ndarray, tolerance: float):
+def simplify_gesture(points: np.ndarray, tolerance: float, start=None, end=None):
     """Simplify the given set of points using the Ramer-Douglas-Peucker algorithm"""
-    # Find the point with the maximum distance from the line segment formed by the start and end points
-    start, end = points[0], points[-1]
+    if start is None:
+        start = 0
+    if end is None:
+        end = len(points) - 1
 
-    # Handle the case where we might divide by zero
-    if np.all(start == end):
-        return [points[0], points[-1]]
+    if end <= start + 1:
+        return points[start:end]
 
-    distances = np.abs(np.cross(end - start, start - points[1:-1])) / np.linalg.norm(end - start)
+    d_max = 0
+    index = start
+    for i in range(start + 1, end):
+        d = (np.abs(np.cross(points[end] - points[start], points[i] - points[start])) /
+             np.linalg.norm(points[end] - points[start]))
+        if d > d_max:
+            index = i
+            d_max = d
 
-    if not distances.size:
-        return [points[0], points[-1]]
-
-    index = np.argmax(distances) + 1
-    dmax = distances[index - 1]
-
-    # If the maximum distance is greater than the tolerance, recursively simplify
-    if dmax > tolerance:
-        results1 = simplify_gesture(points[:index + 1], tolerance)
-        results2 = simplify_gesture(points[index:], tolerance)
-        results = results1[:-1] + results2  # Concatenate the simplified paths
+    if d_max > tolerance:
+        res1 = simplify_gesture(points, tolerance, start, index)
+        res2 = simplify_gesture(points, tolerance, index, end)
+        return np.concatenate((res1[:-1], res2))
     else:
-        results = [points[0], points[-1]]
-
-    return results
+        return np.array([points[start], points[end]])
 
 
 def gaussian_filter(points: np.ndarray, sigma: float = 1.0):
@@ -117,13 +116,16 @@ def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], includ
     # Simplify the tracking points for each landmark
     simplified_landmarks = {}
     for landmark_id in good_landmarks:
-        smoothed_points = np.array(gaussian_filter(numpy_landmarks[landmark_id], sigma=2))
+        smoothed_points = gaussian_filter(numpy_landmarks[landmark_id], sigma=2)
         smoothed_points -= np.mean(smoothed_points, axis=0)
 
         # smoothed_points = np.array(smooth_gesture(tracking_points))
         # savgol the smoothed points
         smoothed_points = savgol_filter_points(smoothed_points, 8, 3)
-        smoothed_points = simplify_gesture(smoothed_points, 0.01)
+        smoothed_points = simplify_gesture(smoothed_points, 0.005)
+
+        if isinstance(smoothed_points, np.ndarray):
+            smoothed_points = smoothed_points.tolist()
 
         simplified_landmarks[landmark_id] = smoothed_points
 
