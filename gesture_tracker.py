@@ -37,11 +37,15 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ["kick", "punch"]
-        for file in os.listdir("data/models"):
-            if file.endswith(".json") and file.split(".")[0] in include:
-                with open(os.path.join("data/models", file), "r") as f:
-                    gestures.append(json.load(f))
+        include = ["punch"]
+        for file in os.listdir("data/models/gestures"):
+            if file.endswith(".json") and file[:-5] in include:
+                with open(os.path.join("data/models/gestures", file), "r") as f:
+                    points = json.load(f)
+                    gestures.append({
+                        "name": points.get('name') or file[:-5],
+                        "points": points.get('points') or points
+                    })
 
         return gestures
 
