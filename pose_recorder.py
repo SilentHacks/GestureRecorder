@@ -17,7 +17,7 @@ class PoseRecorder:
     def __init__(
             self,
             camera: int = 0,
-            num_hands: int = 1,
+            num_hands: int = 2,
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
             min_tracking_confidence: float = 0.7,
@@ -48,20 +48,19 @@ class PoseRecorder:
         self.save_dir = save_dir
         self.pose = ''
         self.poses = self.load_poses(save_dir=save_dir)
-        self.detected = False
+        self.detected = {num: None for num in range(num_hands)}
 
     def __del__(self):
         cv2.destroyAllWindows()
         self.capture.release()
 
-    @property
-    def color(self) -> tuple[int, int, int]:
+    def get_color(self, hand: int) -> tuple[int, int, int]:
         """
         Get the color of the hand based on whether it is detected or not.
 
         :return: color as a tuple of (B, G, R)
         """
-        if self.detected:
+        if self.detected[hand]:
             return 0, 255, 0
 
         return 0, 0, 255
@@ -74,9 +73,8 @@ class PoseRecorder:
         :param results: results from the mediapipe hands module
         :return:
         """
-        hand_landmarks = None
-        color = self.color
-        for hand_landmarks in results.multi_hand_landmarks:
+        for index, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            color = self.get_color(index)
             mp_drawing.draw_landmarks(
                 image=frame,
                 landmark_list=hand_landmarks,
@@ -85,26 +83,29 @@ class PoseRecorder:
                 connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)
             )
 
-        return hand_landmarks
-
     def draw_info(self, image, fps: int):
         cv2.putText(image, 'FPS:' + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (0, 0, 0), 4, cv2.LINE_AA)
         cv2.putText(image, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
-        if self.pose:
-            text = f'POSE {self.pose} DETECTED'
-        else:
-            text = 'NO POSE DETECTED'
+        index = 1
+        for hand, pose in self.detected.items():
+            if not pose:
+                continue
 
-        cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 4, cv2.LINE_AA)
-        cv2.putText(image, text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2, cv2.LINE_AA)
+            text = f'HAND {index} - POSE {pose}'
+            cv2.putText(image, text, (10, 110 + hand * 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        1.0, (255, 255, 255), 4, cv2.LINE_AA)
+            cv2.putText(image, text, (10, 110 + hand * 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        1.0, (0, 0, 0), 2, cv2.LINE_AA)
+
+            index += 1
 
         # Split INFO_TEXT on newline characters
         info_text = INFO_TEXT.split('\n')
         for i, line in enumerate(info_text):
-            cv2.putText(image, line, (10, 150 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(image, line, (10, 670 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
         return image
 
@@ -145,7 +146,8 @@ class PoseRecorder:
         :return:
         """
         self.poses.clear()
-        self.detected = False
+        for key in self.detected:
+            self.detected[key] = None
 
     def check_pose(self, ratios: np.ndarray):
         """
@@ -164,11 +166,9 @@ class PoseRecorder:
 
         if scores:
             scores.sort(key=lambda x: x[1])
-            self.pose = scores[0][0]
-            return True
+            return scores[0][0]
 
-        self.pose = None
-        return False
+        return None
 
     @staticmethod
     def calculate_ratios(hand_landmarks) -> np.ndarray:
@@ -247,10 +247,17 @@ class PoseRecorder:
                 hand_landmarks = None
                 ratios = None
                 if results.multi_hand_landmarks is not None:  # type: ignore
-                    hand_landmarks = self.draw_landmarks(frame=frame, results=results)  # type: ignore
+                    self.draw_landmarks(frame=frame, results=results)  # type: ignore
                     if self.poses:
-                        ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
-                        self.detected = self.check_pose(ratios=ratios)
+                        for index in range(self.num_hands):
+                            try:
+                                hand_landmarks = results.multi_hand_landmarks[index]  # type: ignore
+                            except IndexError:
+                                self.detected[index] = None
+                                continue
+
+                            ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
+                            self.detected[index] = self.check_pose(ratios=ratios)
 
                 cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
