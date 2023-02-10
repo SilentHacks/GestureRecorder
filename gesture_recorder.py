@@ -56,18 +56,18 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'punch_left'
+gesture = 'wave_right_hand'
 
 
 def main():
-    history = record(gesture, '4')
-    processed = process_landmarks(history, plot=True)
+    history = record(gesture, '1')
+    processed = process_landmarks(history, plot=True, include_landmarks={14, 16}, exclude_landmarks={12})
 
     save_json(processed)
 
 
 def save_json(processed):
-    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
+    with open(f'data/models/gestures/{gesture}.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 

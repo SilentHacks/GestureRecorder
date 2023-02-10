@@ -37,7 +37,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ["kick", "punch"]
+        include = ["kick", "punch", "wave_right_hand"]
         for file in os.listdir("data/models"):
             if file.endswith(".json") and file.split(".")[0] in include:
                 with open(os.path.join("data/models", file), "r") as f:
