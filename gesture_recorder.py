@@ -56,12 +56,12 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'wave_right_hand'
+gesture = 'punch'
 
 
 def main():
-    history = record(gesture, '1')
-    processed = process_landmarks(history, plot=True, include_landmarks={14, 16}, exclude_landmarks={12})
+    history = record(gesture, '4')
+    processed = process_landmarks(history, plot=True)
 
     save_json(processed)
 
@@ -75,7 +75,7 @@ def plot_json():
     with open(f'data/models/gestures/{gesture}.json', 'r') as f:
         data = json.load(f)
 
-    for landmark_id, points in data['points'].items():
+    for landmark_id, points in data.items():
         x, y = zip(*points)
 
         landmark_id = int(landmark_id)
@@ -91,11 +91,11 @@ def compare():
         model = json.load(f)
 
     history = record(gesture, '2')
-    landmark_ids = {int(idx) for idx in model['points'].keys()}
+    landmark_ids = {int(idx) for idx in model.keys()}
     processed = process_landmarks(history, include_landmarks=landmark_ids, plot=True)
 
     distances = []
-    for landmark_id, points in model['points'].items():
+    for landmark_id, points in model.items():
         distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
         # distance = calculate_threshold(points, processed[int(landmark_id)])
         distances.append(distance)
