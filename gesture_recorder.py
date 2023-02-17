@@ -56,11 +56,11 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'punch'
+gesture = 'relax'
 
 
 def main():
-    history = record(gesture, '4')
+    history = record(gesture, '1')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)

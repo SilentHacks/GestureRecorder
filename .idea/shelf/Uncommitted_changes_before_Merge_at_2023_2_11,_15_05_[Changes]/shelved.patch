@@ -1,0 +1,169 @@
+Index: gesture_tracker.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import json\nimport os\nimport time\nfrom collections import deque\n\nimport cv2\nfrom fastdtw import fastdtw\nfrom pynput.mouse import Controller\nfrom pynput.keyboard import Key, Controller as KeyboardController\nfrom scipy.spatial.distance import euclidean\n\nfrom pose_recorder import mp_drawing\nfrom utils.config import FOCUS_POINTS, mp_pose\nfrom utils.fps_tracker import FPSTracker\nfrom utils.tracker_2d import process_landmarks\n\nBUFFER_SIZE = 25\nMOVE_MOUSE = False\n\n\nclass GestureTracker:\n    def __init__(self, camera: int = 0):\n        \"\"\"\n        Initialize the recorder.\n\n        :param camera: camera ID to use\n        \"\"\"\n        self.capture = cv2.VideoCapture(camera)\n        self.point_history = {num.value: deque(maxlen=BUFFER_SIZE) for num in FOCUS_POINTS}\n        self.color_keep = 0\n        self.detected = ''\n        self.mouse = Controller()\n        self.keyboard = KeyboardController()\n\n        self.gestures = self.load_gestures()\n\n    @staticmethod\n    def load_gestures():\n        gestures = []\n        include = [\"kick\", \"punch\", \"wave_right_hand\"]\n        for file in os.listdir(\"data/models\"):\n            if file.endswith(\".json\") and file.split(\".\")[0] in include:\n                with open(os.path.join(\"data/models\", file), \"r\") as f:\n                    gestures.append(json.load(f))\n\n        return gestures\n\n    @property\n    def color(self) -> tuple[int, int, int]:\n        \"\"\"\n        Get the color of the hand landmarks.\n\n        :return: the color\n        \"\"\"\n        if self.detected and self.color_keep > 0:\n            self.color_keep -= 1\n            return 0, 255, 0\n\n        self.detected = ''\n        return 0, 0, 255\n\n    def draw_landmarks(self, frame, results):\n        \"\"\"\n        Draw the landmarks on the frame.\n\n        :param frame: frame to draw on\n        :param results: results from the mediapipe hands module\n        :return:\n        \"\"\"\n        color = self.color\n        mp_drawing.draw_landmarks(\n            image=frame,\n            landmark_list=results.pose_landmarks,\n            connections=mp_pose.POSE_CONNECTIONS,\n            landmark_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2),\n            connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)\n        )\n\n    def draw_info(self, image, fps: int):\n        cv2.putText(image, 'FPS:' + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,\n                    1.0, (0, 0, 0), 4, cv2.LINE_AA)\n        cv2.putText(image, \"FPS:\" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,\n                    1.0, (255, 255, 255), 2, cv2.LINE_AA)\n\n        cv2.putText(image, f'Gesture: {self.detected or None}', (10, 90),\n                    cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 4,\n                    cv2.LINE_AA)\n        cv2.putText(image, f'Gesture: {self.detected or None}', (10, 90),\n                    cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2,\n                    cv2.LINE_AA)\n\n        return image\n\n    @staticmethod\n    def get_centre_point(results, num):\n        landmark = results.pose_world_landmarks.landmark[num]\n\n        if landmark.visibility < 0.7:\n            return 0, 0\n\n        return landmark.x, landmark.y\n\n    def detect_gesture(self):\n        scores = []\n        for gesture in self.gestures:\n            landmark_ids = {int(idx) for idx in gesture['points'].keys()}\n            processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)\n\n            distances = []\n            for landmark_id, points in gesture['points'].items():\n                count = 0\n                for coord in processed[int(landmark_id)]:\n                    if coord[0] == 0 and coord[1] == 0:\n                        count += 1\n                        if count > BUFFER_SIZE / 2:\n                            break\n                if count > BUFFER_SIZE / 2:\n                    return\n\n                distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)\n                distances.append(distance)\n\n            mean = sum(distances) / len(distances)\n            # print(gesture['name'], distances, mean)\n            threshold = 0.15 + 0.15 * len(distances)\n            if mean < threshold:\n                scores.append((gesture['name'], mean))\n\n        if scores:\n            scores.sort(key=lambda x: x[1])\n            self.color_keep = 10\n            self.detected = scores[0][0]\n            # print(self.detected, scores[0][1])\n            # self.handle_input()\n            if self.detected != 'front_stroke':\n                self.clear_history()\n\n    def clear_history(self):\n        for k in self.point_history.keys():\n            self.point_history[k].clear()\n\n    def handle_input(self):\n        \"\"\"Before you freak out, this is just for testing.\"\"\"\n        if self.detected == 'baseball_swing':\n            self.mouse.position = (1100, 800)\n            time.sleep(0.03)\n\n            # Drag mouse to the left with deceleration\n            for i in range(60, 25, -1):\n                self.mouse.move(-i, -i)\n                time.sleep(0.01)\n\n        elif self.detected == 'tennis_swing':\n            # Drag mouse to the left with deceleration\n            self.mouse.position = (1200, 400)\n            time.sleep(0.03)\n\n            for i in range(60, 25, -1):\n                self.mouse.move(-i, -i // 2)\n                time.sleep(0.01)\n\n        elif self.detected == 'back_swing':\n            # Drag mouse to the right with deceleration\n            self.mouse.position = (400, 400)\n            time.sleep(0.03)\n\n            for i in range(60, 25, -1):\n                self.mouse.move(i, -i // 2)\n                time.sleep(0.01)\n\n        elif self.detected == 'serve':\n            self.keyboard.press('i')\n            time.sleep(0.03)\n            self.keyboard.release('i')\n\n            self.keyboard.press('s')\n            time.sleep(0.03)\n            self.keyboard.release('s')\n\n            self.keyboard.press('i')\n            time.sleep(0.03)\n            self.keyboard.release('i')\n\n            self.keyboard.press('s')\n            time.sleep(0.03)\n            self.keyboard.release('s')\n\n        elif self.detected == 'punch':\n            self.keyboard.press(Key.enter)\n            time.sleep(0.04)\n            self.keyboard.release(Key.enter)\n\n        elif self.detected == 'punch_left':\n            self.keyboard.press('a')\n            time.sleep(0.04)\n            self.keyboard.release('a')\n\n    @staticmethod\n    def handle_key(key: int) -> bool:\n        \"\"\"\n        Handle key presses.\n\n        :param key: key pressed\n        :return: True if the program should exit, False otherwise\n        \"\"\"\n        if key == 27:  # ESC\n            return True\n\n        return False\n\n    def run(self, display: bool = True):\n        \"\"\"\n        Record gestures and save them when the user presses the \"S\" key.\n\n        :param display: whether to display the video feed\n        :return:\n        \"\"\"\n\n        with mp_pose.Pose(\n                model_complexity=0,\n                min_detection_confidence=0.5,\n                min_tracking_confidence=0.5\n        ) as pose:\n            fps_tracker = FPSTracker()\n            while True:\n                _, frame = self.capture.read()\n\n                # To improve performance, mark the image as not writeable to pass by reference\n                frame.flags.writeable = False\n                results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))\n                frame.flags.writeable = True\n\n                if results.pose_landmarks is not None:  # type: ignore\n                    if display:\n                        self.draw_landmarks(frame=frame, results=results)  # type: ignore\n                    if len(self.point_history[list(self.point_history.keys())[0]]) == BUFFER_SIZE:\n                        self.detect_gesture()\n\n                    for num in FOCUS_POINTS:\n                        self.point_history[num.value].append(\n                            self.get_centre_point(results=results, num=num.value))  # type: ignore\n\n                if display:\n                    cv2.imshow('Gesture Tracker', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))\n\n                    key = cv2.waitKey(1)\n                    if self.handle_key(key=key):\n                        break\n\n\nif __name__ == '__main__':\n    recorder = GestureTracker()\n    recorder.run()\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gesture_tracker.py b/gesture_tracker.py
+--- a/gesture_tracker.py	(revision 8f1c5aca59595dc4ddc72d9929b2f2651157f36f)
++++ b/gesture_tracker.py	(date 1676127642268)
+@@ -37,7 +37,7 @@
+     @staticmethod
+     def load_gestures():
+         gestures = []
+-        include = ["kick", "punch", "wave_right_hand"]
++        include = ["kick", "punch", "wave_right_hand", "baseball_swing", "aaa", "tennis_swing"]
+         for file in os.listdir("data/models"):
+             if file.endswith(".json") and file.split(".")[0] in include:
+                 with open(os.path.join("data/models", file), "r") as f:
+Index: gesture_recorder.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import json\nimport os\n\nimport cv2\nimport numpy as np\nfrom fastdtw import fastdtw\nfrom matplotlib import pyplot as plt\nfrom scipy.spatial.distance import euclidean\n\nfrom utils.config import FOCUS_POINTS, mp_drawing, mp_pose, draw_style\nfrom utils.tracker_2d import process_landmarks\n\n\ndef record(gesture_name, file_name):\n    # Check if .mov or .mp4 file exists - if it does, choose the right one\n    if not os.path.isfile(path := os.path.join(\"data\", \"videos\", gesture_name, f\"{file_name}.mov\")):\n        path = os.path.join(\"data\", \"videos\", gesture_name, f\"{file_name}.mp4\")\n\n    cap = cv2.VideoCapture(path)\n\n    history = {num.value: [] for num in FOCUS_POINTS}\n\n    with mp_pose.Pose(\n            static_image_mode=True,\n            model_complexity=1,\n            min_detection_confidence=0.5\n    ) as pose:\n        while cap.isOpened():\n            ret, image = cap.read()\n            if not ret:\n                break\n\n            image.flags.writeable = False\n            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)\n            results = pose.process(image)\n\n            # Draw the pose annotation on the image.\n            image.flags.writeable = True\n            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)\n            mp_drawing.draw_landmarks(image, results.pose_landmarks,  # type: ignore\n                                      mp_pose.POSE_CONNECTIONS, landmark_drawing_spec=draw_style)\n\n            if results.pose_world_landmarks:  # type: ignore\n                for num in FOCUS_POINTS:\n                    landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore\n                    history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))\n\n            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))\n            if cv2.waitKey(5) & 0xFF == 27:\n                break\n\n        cap.release()\n\n    print('Frames:', len(history[list(history.keys())[0]]))\n\n    return history\n\n\ngesture = 'wave_right_hand'\n\n\ndef main():\n    history = record(gesture, '1')\n    processed = process_landmarks(history, plot=True, include_landmarks={14, 16}, exclude_landmarks={12})\n\n    save_json(processed)\n\n\ndef save_json(processed):\n    with open(f'data/models/gestures/{gesture}.json', 'w') as f:\n        json.dump(processed, f, indent=4)\n\n\ndef plot_json():\n    with open(f'data/models/gestures/{gesture}.json', 'r') as f:\n        data = json.load(f)\n\n    for landmark_id, points in data['points'].items():\n        x, y = zip(*points)\n\n        landmark_id = int(landmark_id)\n        color = np.array([landmark_id * 100 % 255, landmark_id * 200 % 255, landmark_id * 300 % 255]) / 255\n        plt.plot(x, y, color=color, label=f'Landmark {landmark_id}')\n\n    plt.legend()\n    plt.show()\n\n\ndef compare():\n    with open(f'data/models/gestures/{gesture}.json', 'r') as f:\n        model = json.load(f)\n\n    history = record(gesture, '2')\n    landmark_ids = {int(idx) for idx in model['points'].keys()}\n    processed = process_landmarks(history, include_landmarks=landmark_ids, plot=True)\n\n    distances = []\n    for landmark_id, points in model['points'].items():\n        distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)\n        # distance = calculate_threshold(points, processed[int(landmark_id)])\n        distances.append(distance)\n\n    print(distances, sum(distances) / len(distances))\n\n\nif __name__ == '__main__':\n    main()\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gesture_recorder.py b/gesture_recorder.py
+--- a/gesture_recorder.py	(revision 8f1c5aca59595dc4ddc72d9929b2f2651157f36f)
++++ b/gesture_recorder.py	(date 1676127077591)
+@@ -56,7 +56,7 @@
+     return history
+ 
+ 
+-gesture = 'wave_right_hand'
++gesture = 'aaa'
+ 
+ 
+ def main():
+Index: data/models/gestures/wave_right_hand.json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/models/gestures/wave_right_hand.json b/data/models/gestures/wave_right_hand.json
+deleted file mode 100644
+--- a/data/models/gestures/wave_right_hand.json	(revision 8f1c5aca59595dc4ddc72d9929b2f2651157f36f)
++++ /dev/null	(revision 8f1c5aca59595dc4ddc72d9929b2f2651157f36f)
+@@ -1,78 +0,0 @@
+-{
+-    "16": [
+-        [
+-            0.15776371920604965,
+-            0.12193835084528304
+-        ],
+-        [
+-            0.10214829256963286,
+-            0.002502810149357671
+-        ],
+-        [
+-            0.06965340820038286,
+-            -0.01958345902898532
+-        ],
+-        [
+-            0.00029928461092752334,
+-            -0.03694665151343675
+-        ],
+-        [
+-            -0.04412361641864437,
+-            -0.038040580143459124
+-        ],
+-        [
+-            -0.08581311341775821,
+-            -0.02757440122792147
+-        ],
+-        [
+-            -0.13802304726454728,
+-            -0.0020589320763221633
+-        ],
+-        [
+-            -0.11019379226431382,
+-            -0.0169539523073195
+-        ],
+-        [
+-            0.0004457138506683226,
+-            -0.038447787290149214
+-        ],
+-        [
+-            0.1161738374052487,
+-            0.023390898646254887
+-        ],
+-        [
+-            0.17648955924742146,
+-            0.15787711631794654
+-        ]
+-    ],
+-    "14": [
+-        [
+-            0.09286753716399641,
+-            0.0726396536126557
+-        ],
+-        [
+-            0.0013974327440606264,
+-            -0.004192984450758469
+-        ],
+-        [
+-            -0.008105776092113244,
+-            -0.02861013766617905
+-        ],
+-        [
+-            -0.045072133938974565,
+-            0.0015636101328350231
+-        ],
+-        [
+-            -0.0008955175457805021,
+-            -0.019360669554106272
+-        ],
+-        [
+-            0.027859939001309637,
+-            0.01906433767321808
+-        ],
+-        [
+-            0.12050429976850775,
+-            0.1038311098975399
+-        ]
+-    ]
+-}
+\ No newline at end of file
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"AutoImportSettings\">\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\n  </component>\n  <component name=\"ChangeListManager\">\n    <list default=\"true\" id=\"c1059f1c-ac77-4265-b1fc-c5b40fe2df7c\" name=\"Changes\" comment=\"\">\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/gesture_recorder.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/gesture_recorder.py\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/gesture_tracker.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/gesture_tracker.py\" afterDir=\"false\" />\n    </list>\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\n  </component>\n  <component name=\"FileTemplateManagerImpl\">\n    <option name=\"RECENT_TEMPLATES\">\n      <list>\n        <option value=\"Python Script\" />\n      </list>\n    </option>\n  </component>\n  <component name=\"Git.Settings\">\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\n  </component>\n  <component name=\"MarkdownSettingsMigration\">\n    <option name=\"stateVersion\" value=\"1\" />\n  </component>\n  <component name=\"ProjectId\" id=\"2L97LYBaLZLQeamEprfm4QDdjea\" />\n  <component name=\"ProjectViewState\">\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\n    <option name=\"showLibraryContents\" value=\"true\" />\n  </component>\n  <component name=\"PropertiesComponent\">{\n  &quot;keyToString&quot;: {\n    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\n    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,\n    &quot;last_opened_file_path&quot;: &quot;/Users/zhangweiyi/Documents/GitHub/GestureRecorder&quot;,\n    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,\n    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,\n    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,\n    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,\n    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,\n    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;\n  }\n}</component>\n  <component name=\"RecentsManager\">\n    <key name=\"MoveFile.RECENT_KEYS\">\n      <recent name=\"$PROJECT_DIR$/data/videos\" />\n    </key>\n  </component>\n  <component name=\"RunManager\">\n    <configuration name=\"gesture_recorder\" type=\"PythonConfigurationType\" factoryName=\"Python\" nameIsGenerated=\"true\">\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\n      <option name=\"PARENT_ENVS\" value=\"true\" />\n      <envs>\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\n      </envs>\n      <option name=\"SDK_HOME\" value=\"$PROJECT_DIR$/../MediaPipePaths/venv/bin/python\" />\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\n      <option name=\"IS_MODULE_SDK\" value=\"false\" />\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\n      <module name=\"\" />\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/gesture_recorder.py\" />\n      <option name=\"PARAMETERS\" value=\"\" />\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\n      <option name=\"MODULE_MODE\" value=\"false\" />\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\n      <option name=\"INPUT_FILE\" value=\"\" />\n      <method v=\"2\" />\n    </configuration>\n    <configuration name=\"main\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\n      <module name=\"GestureRecorder\" />\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\n      <option name=\"PARENT_ENVS\" value=\"true\" />\n      <envs>\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\n      </envs>\n      <option name=\"SDK_HOME\" value=\"\" />\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$/gui\" />\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/gui/main.py\" />\n      <option name=\"PARAMETERS\" value=\"\" />\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\n      <option name=\"MODULE_MODE\" value=\"false\" />\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\n      <option name=\"INPUT_FILE\" value=\"\" />\n      <method v=\"2\" />\n    </configuration>\n    <configuration name=\"python recorder.py\" type=\"PythonConfigurationType\" factoryName=\"Python\">\n      <module name=\"GestureRecorder\" />\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\n      <option name=\"PARENT_ENVS\" value=\"true\" />\n      <envs>\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\n      </envs>\n      <option name=\"SDK_HOME\" value=\"$PROJECT_DIR$/venv/bin/python\" />\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\n      <option name=\"IS_MODULE_SDK\" value=\"false\" />\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\n      <option name=\"SCRIPT_NAME\" value=\"recorder.py\" />\n      <option name=\"PARAMETERS\" value=\"\" />\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\n      <option name=\"MODULE_MODE\" value=\"false\" />\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\n      <option name=\"INPUT_FILE\" value=\"\" />\n      <method v=\"2\" />\n    </configuration>\n    <recent_temporary>\n      <list>\n        <item itemvalue=\"Python.main\" />\n      </list>\n    </recent_temporary>\n  </component>\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\n  <component name=\"TaskManager\">\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\n      <changelist id=\"c1059f1c-ac77-4265-b1fc-c5b40fe2df7c\" name=\"Changes\" comment=\"\" />\n      <created>1675271388682</created>\n      <option name=\"number\" value=\"Default\" />\n      <option name=\"presentableId\" value=\"Default\" />\n      <updated>1675271388682</updated>\n      <workItem from=\"1675271390838\" duration=\"2684000\" />\n      <workItem from=\"1675345287877\" duration=\"1516000\" />\n      <workItem from=\"1675348429187\" duration=\"312000\" />\n      <workItem from=\"1675348744036\" duration=\"520000\" />\n      <workItem from=\"1675349274943\" duration=\"204000\" />\n      <workItem from=\"1675433637425\" duration=\"3942000\" />\n      <workItem from=\"1675681243862\" duration=\"13227000\" />\n      <workItem from=\"1676053599468\" duration=\"254000\" />\n      <workItem from=\"1676053978771\" duration=\"2011000\" />\n      <workItem from=\"1676056040067\" duration=\"1588000\" />\n    </task>\n    <servers />\n  </component>\n  <component name=\"TypeScriptGeneratedFilesManager\">\n    <option name=\"version\" value=\"3\" />\n  </component>\n  <component name=\"Vcs.Log.Tabs.Properties\">\n    <option name=\"TAB_STATES\">\n      <map>\n        <entry key=\"MAIN\">\n          <value>\n            <State />\n          </value>\n        </entry>\n      </map>\n    </option>\n  </component>\n  <component name=\"com.intellij.coverage.CoverageDataManagerImpl\">\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$test.coverage\" NAME=\"test Coverage Results\" MODIFIED=\"1676039082193\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$/gui\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$gesture_recorder.coverage\" NAME=\"gesture_recorder Coverage Results\" MODIFIED=\"1676056949987\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$main.coverage\" NAME=\"main Coverage Results\" MODIFIED=\"1676039200561\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$/gui\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$recorder.coverage\" NAME=\"recorder Coverage Results\" MODIFIED=\"1675792204289\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$video_recorder.coverage\" NAME=\"video_recorder Coverage Results\" MODIFIED=\"1675871258290\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$gesture_tracker.coverage\" NAME=\"gesture_tracker Coverage Results\" MODIFIED=\"1676056961895\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$python_recorder_py.coverage\" NAME=\"python recorder.py Coverage Results\" MODIFIED=\"1675347067036\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\n    <SUITE FILE_PATH=\"coverage/GestureRecorder$tracker_3d.coverage\" NAME=\"tracker_3d Coverage Results\" MODIFIED=\"1675871314119\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$/utils\" />\n  </component>\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 8f1c5aca59595dc4ddc72d9929b2f2651157f36f)
++++ b/.idea/workspace.xml	(date 1676127816379)
+@@ -6,6 +6,7 @@
+   <component name="ChangeListManager">
+     <list default="true" id="c1059f1c-ac77-4265-b1fc-c5b40fe2df7c" name="Changes" comment="">
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/data/models/gestures/wave_right_hand.json" beforeDir="false" />
+       <change beforePath="$PROJECT_DIR$/gesture_recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/gesture_recorder.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/gesture_tracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/gesture_tracker.py" afterDir="false" />
+     </list>
+@@ -141,7 +142,7 @@
+       <workItem from="1675681243862" duration="13227000" />
+       <workItem from="1676053599468" duration="254000" />
+       <workItem from="1676053978771" duration="2011000" />
+-      <workItem from="1676056040067" duration="1588000" />
++      <workItem from="1676056040067" duration="4563000" />
+     </task>
+     <servers />
+   </component>
+@@ -161,11 +162,12 @@
+   </component>
+   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+     <SUITE FILE_PATH="coverage/GestureRecorder$test.coverage" NAME="test Coverage Results" MODIFIED="1676039082193" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/gui" />
+-    <SUITE FILE_PATH="coverage/GestureRecorder$gesture_recorder.coverage" NAME="gesture_recorder Coverage Results" MODIFIED="1676056949987" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/GestureRecorder$pose_recorder.coverage" NAME="pose_recorder Coverage Results" MODIFIED="1676059624082" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/GestureRecorder$gesture_recorder.coverage" NAME="gesture_recorder Coverage Results" MODIFIED="1676127077601" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+     <SUITE FILE_PATH="coverage/GestureRecorder$main.coverage" NAME="main Coverage Results" MODIFIED="1676039200561" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/gui" />
+     <SUITE FILE_PATH="coverage/GestureRecorder$recorder.coverage" NAME="recorder Coverage Results" MODIFIED="1675792204289" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+     <SUITE FILE_PATH="coverage/GestureRecorder$video_recorder.coverage" NAME="video_recorder Coverage Results" MODIFIED="1675871258290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+-    <SUITE FILE_PATH="coverage/GestureRecorder$gesture_tracker.coverage" NAME="gesture_tracker Coverage Results" MODIFIED="1676056961895" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/GestureRecorder$gesture_tracker.coverage" NAME="gesture_tracker Coverage Results" MODIFIED="1676127642274" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+     <SUITE FILE_PATH="coverage/GestureRecorder$python_recorder_py.coverage" NAME="python recorder.py Coverage Results" MODIFIED="1675347067036" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+     <SUITE FILE_PATH="coverage/GestureRecorder$tracker_3d.coverage" NAME="tracker_3d Coverage Results" MODIFIED="1675871314119" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
+   </component>
