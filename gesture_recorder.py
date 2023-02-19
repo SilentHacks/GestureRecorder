@@ -10,6 +10,8 @@ from scipy.spatial.distance import euclidean
 from utils.config import FOCUS_POINTS, mp_drawing, mp_pose, draw_style
 from utils.tracker_2d import process_landmarks
 
+# class GestureRecorder:
+#     def __init__(self):
 
 def record(gesture_name, file_name):
     # Check if .mov or .mp4 file exists - if it does, choose the right one
@@ -56,11 +58,11 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'punch'
+gesture = 'relax'
 
 
 def main():
-    history = record(gesture, '4')
+    history = record(gesture, '1')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)

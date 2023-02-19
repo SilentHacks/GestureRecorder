@@ -19,3 +19,4 @@ six==1.16.0
 scipy~=1.10.0
 fastdtw~=0.3.4
 pynput~=1.7.6
+pysimplegui~=4.60.0
