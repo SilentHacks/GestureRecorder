@@ -16,7 +16,7 @@ INFO_TEXT = ('"S" to save the pose\n'
 class PoseRecorder:
     def __init__(
             self,
-            camera: int = 0,
+            camera = None,
             num_hands: int = 2,
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
@@ -44,6 +44,7 @@ class PoseRecorder:
         self.min_tracking_confidence = min_tracking_confidence
         self.model_complexity = model_complexity
         self.pose_leniency = pose_leniency
+        self.pose_threshold = pose_threshold
         self.pose_threshold = pose_threshold
         self.save_dir = save_dir
         self.pose = ''
@@ -237,29 +238,33 @@ class PoseRecorder:
         ) as hands:
             fps_tracker = FPSTracker()
             while True:
-                _, frame = self.capture.read()
+                ret, frame = self.capture.read()
 
-                # To improve performance, mark the image as not writeable to pass by reference
-                frame.flags.writeable = False
-                results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                frame.flags.writeable = True
+                if ret:
+                    # To improve performance, mark the image as not writeable to pass by reference
+                    frame.flags.writeable = False
+                    results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    frame.flags.writeable = True
 
-                hand_landmarks = None
-                ratios = None
-                if results.multi_hand_landmarks is not None:  # type: ignore
-                    self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                    if self.poses:
-                        for index in range(self.num_hands):
-                            try:
-                                hand_landmarks = results.multi_hand_landmarks[index]  # type: ignore
-                            except IndexError:
-                                self.detected[index] = None
-                                continue
+                    hand_landmarks = None
+                    ratios = None
+                    if results.multi_hand_landmarks is not None:  # type: ignore
+                        self.draw_landmarks(frame=frame, results=results)  # type: ignore
+                        if self.poses:
+                            for index in range(self.num_hands):
+                                try:
+                                    hand_landmarks = results.multi_hand_landmarks[index]  # type: ignore
+                                except IndexError:
+                                    self.detected[index] = None
+                                    continue
 
-                            ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
-                            self.detected[index] = self.check_pose(ratios=ratios)
-
-                cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
+                                ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
+                                self.detected[index] = self.check_pose(ratios=ratios)
+                    cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
+                else:
+                    # If the video is over, start again
+                    self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    continue
 
                 key = cv2.waitKey(1)
                 if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks):

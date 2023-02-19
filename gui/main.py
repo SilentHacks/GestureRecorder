@@ -1,48 +1,39 @@
 # create a setup window for pyautogui
 
 import PySimpleGUI as sg
-import screeninfo
+import control_panel as cp
 import os.path
 import cv2
+def file_input_window() -> str:
+    file_path = ""
+    layout = [[sg.Text("Please Choose a Video File: ", font="Helvetica 14 bold")],
+              [sg.Text("File Path", font="Helvetica 14 bold"), sg.InputText(key="-FILE_PATH-", size=(50, 4)),
+              sg.FileBrowse(initial_folder=os.path.dirname(os.path.dirname(os.path.abspath(__file__))) +
+                                            "/data/videos",
+                             file_types=(("Video Files", "*.mov"), ("Video Files", "*.mp4")))],
+              [sg.Button("OK", size=(10, 1), font="Helvetica 16 bold"), sg.Exit()]]
 
-def windowSetup():
-    # let window get webcam input
-    sg.theme("DarkGrey9")
+    file_window = sg.Window("File Browser", layout, keep_on_top=True)
+    while True:
+        event, values = file_window.read()
+        if event == "Exit" or event == sg.WIN_CLOSED:
+            break
+        if event == "OK":
+            file_path = values["-FILE_PATH-"]
+            break
+    file_window.close()
 
-    sg.SetOptions(
-        button_color=sg.COLOR_SYSTEM_DEFAULT
-        , text_color=sg.COLOR_SYSTEM_DEFAULT
-    )
-
-    # red color RGB
-
-    display_column = [[sg.Button("CLOSE", size=(10, 1), font="Helvetica 16 bold"), sg.Text("Notice, Dynamic gestures cannot be \n longer than 2 seconds (60 frames)!", font=("Helvetica", 16))],
-                       [sg.Button("Record Live", size=(12, 1), font="Helvetica 16 bold"), sg.Button("Import Video", size=(12, 1), font="Helvetica 16 bold")]]
-
-    control_column = [[sg.Text("Options", font=("Helvetica", 20, "bold"))],
-                      [sg.Text("Gesture Type", font=("Helvetica", 16, "bold"))],
-                      [sg.Radio("Static", "RADIO1", default=True, key="-STATIC-"), sg.Radio("Dynamic", "RADIO1", key="-DYNAMIC-")],
-                      [sg.Text("Enable Hand Detection", font=("Helvetica", 16, "bold")), sg.Checkbox("", default=True, key="-Detect_Hand-")],
-                      [sg.Text("Detection Sensitivity", font=("Helvetica", 16, "bold"))],
-                      [sg.Slider(range=(0, 10), default_value=5, orientation="h", size=(34, 20), key='-SENSITIVITY-')],
-                      [sg.Text("Body Focus Part", font=("Helvetica", 16, "bold"))],
-                      [sg.Radio("Upper Body", "RADIO2", default=True, key="-HighBody-"), sg.Radio("Lower Body", "RADIO2", key="-LowBody-")],
-                      [sg.Button("SAVE", size=(10, 1), font="Helvetica 16 bold")],
-                      [sg.Button("RECORD", button_color="red", size=(10, 1), font="Helvetica 16 bold")]]
-    # make
-    layout = [[sg.Column(display_column), sg.VSeperator(), sg.Column(control_column)]]
-    return sg.Window("Gesture Recording Panel", layout, resizable=False, finalize=True)
+    return file_path
 
 def run():
-    relative_size = (1080, 720)
-    window = windowSetup()
+    controlPanel = cp.ControlPanel(record_live=True, hand_pose=True, sensitivity=5, upper_body=True)
+    window = controlPanel.get_control_panel()
 
     # get secren size and set window size
-    screen = screeninfo.get_monitors()[0]
-    window.TKroot.geometry(f"{relative_size[0]}x{relative_size[1]}+{screen.width // 2 - relative_size[0] // 2}+{screen.height // 2 - relative_size[1] // 2}")
+    # screen = screeninfo.get_monitors()[0]
+    # window.TKroot.geometry(f"{relative_size[0]}x{relative_size[1]}+{screen.width // 2 - relative_size[0] // 2}+{screen.height // 2 - relative_size[1] // 2}")
     while True:
         event, values = window.read()
-        print(event, values)
         if event == "CLOSE" or event == sg.WIN_CLOSED:
             break
         elif event == "Record Live":
@@ -51,13 +42,29 @@ def run():
         elif event == "Import Video":
             # get the cv window from pose_recorder.py
             print("import video")
-
-        elif event == "SAVE":
+        elif event == "anno1":
+            sg.popup("User can record a gesture/pose live via webcam, or can import an existing video containing the part of the gesture/pose. \n",
+                     font="Helvetica 14", keep_on_top=True)
+        elif event == "anno2":
+            sg.popup("Hand Poses are stationary, user can choose a static pose and record that pose frame. \n "
+                     "Body gestures are full body dynamic gestures, user can do a dynamic gesture within 2 secs to record the whold move. \n",
+                     font="Helvetica 14", keep_on_top=True)
+        elif event == "SAVE & START":
             # save all options and update the recording window
-            print("save")
-        elif event == "RECORD":
-            # start "detecting" according to the modes
-            print("record")
+            print(values)
+            if values["-Import_Video-"]:
+                file_path = file_input_window()
+                if file_path == "":
+                    sg.popup("Please choose a video file!", font="Helvetica 14", keep_on_top=True)
+                    continue
+
+                values["import_path"] = file_path
+                print(values)
+
+            selected_options: dict = controlPanel.parse_values(values)
+            print("final options are: ", selected_options)
+
+            print("Options saved, start recording!")
     window.close()
 
 
