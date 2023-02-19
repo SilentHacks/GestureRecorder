@@ -16,7 +16,7 @@ INFO_TEXT = ('"S" to save the pose\n'
 class PoseRecorder:
     def __init__(
             self,
-            camera = None,
+            camera='data/videos/wave_right_hand/1.mov',
             num_hands: int = 2,
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
@@ -110,20 +110,20 @@ class PoseRecorder:
 
         return image
 
-    def save_pose(self, ratios: np.ndarray):
+    def save_pose(self, ratios: np.ndarray, name: str):
         """
         Save the pose to be checked later.
         :param ratios: list of ratios
+        :param name: name of the pose
         :return:
         """
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
-        pose_name = f'{len(os.listdir(self.save_dir)) + 1}'
-        with open(f'{self.save_dir}/{pose_name}.json', 'w') as f:
+        with open(f'{self.save_dir}/{name}.json', 'w') as f:
             json.dump(ratios.tolist(), f)
 
-        self.poses[pose_name] = ratios
+        self.poses[name] = ratios
 
     @staticmethod
     def load_poses(save_dir: str):
@@ -201,13 +201,14 @@ class PoseRecorder:
 
         return distances
 
-    def handle_key(self, key: int, ratios: np.ndarray = None, hand_landmarks=None) -> bool:
+    def handle_key(self, key: int, ratios: np.ndarray = None, hand_landmarks=None, name=None) -> bool:
         """
         Handle key presses.
 
         :param key: key pressed
         :param ratios: list of ratios
         :param hand_landmarks: hand landmarks
+        :param name: name of the pose
         :return: True if the program should exit, False otherwise
         """
         if key == 27:  # ESC
@@ -219,11 +220,11 @@ class PoseRecorder:
             if ratios is None:
                 ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
 
-            self.save_pose(ratios=ratios)
+            self.save_pose(ratios=ratios, name=name)
 
         return False
 
-    def record(self):
+    def record(self, name: str = None):
         """
         Record poses and save them when the user presses the "S" key.
 
@@ -267,10 +268,10 @@ class PoseRecorder:
                     continue
 
                 key = cv2.waitKey(1)
-                if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks):
+                if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks, name=name):
                     break
 
 
 if __name__ == '__main__':
     recorder = PoseRecorder()
-    recorder.record()
+    recorder.record(name='3')
