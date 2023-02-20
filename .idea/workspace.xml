@@ -7,10 +7,6 @@
     <list default="true" id="c1059f1c-ac77-4265-b1fc-c5b40fe2df7c" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/control_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/control_panel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/record_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/record_panel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ThumbNailUtils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ThumbNailUtils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/VideoRecorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/VideoRecorder.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -197,7 +193,7 @@
       <workItem from="1676566556733" duration="15379000" />
       <workItem from="1676633204195" duration="25000" />
       <workItem from="1676633235982" duration="14852000" />
-      <workItem from="1676777321074" duration="32909000" />
+      <workItem from="1676777321074" duration="35296000" />
     </task>
     <servers />
   </component>
@@ -220,7 +216,7 @@
     <SUITE FILE_PATH="coverage/GestureRecorder$control_panel.coverage" NAME="control_panel Coverage Results" MODIFIED="1676880606486" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/gui" />
     <SUITE FILE_PATH="coverage/GestureRecorder$GifUtils.coverage" NAME="GifUtils Coverage Results" MODIFIED="1676861485465" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
     <SUITE FILE_PATH="coverage/GestureRecorder$pose_recorder.coverage" NAME="pose_recorder Coverage Results" MODIFIED="1676839872413" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/GestureRecorder$main.coverage" NAME="main Coverage Results" MODIFIED="1676880609304" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/gui" />
+    <SUITE FILE_PATH="coverage/GestureRecorder$main.coverage" NAME="main Coverage Results" MODIFIED="1676902767033" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/gui" />
     <SUITE FILE_PATH="coverage/GestureRecorder$recorder.coverage" NAME="recorder Coverage Results" MODIFIED="1675792204289" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/GestureRecorder$VideoRecorder.coverage" NAME="VideoRecorder Coverage Results" MODIFIED="1676870151455" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
     <SUITE FILE_PATH="coverage/GestureRecorder$video_recorder.coverage" NAME="video_recorder Coverage Results" MODIFIED="1675871258290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

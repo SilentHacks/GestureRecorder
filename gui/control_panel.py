@@ -37,7 +37,7 @@ class ControlPanel:
             , auto_size_text=True
         )
 
-        self.layout = [[sg.Button("CLOSE", size=(6, 1), button_color="white on #7B7B7B", font="Impact 18 bold"),
+        self.layout = [[sg.Button("CLOSE", size=(6, 1), button_color="white on #4A4A4A", font="Impact 18 bold"),
                         sg.Text("Notice, Dynamic gestures cannot be \n longer than 2 seconds (60 frames)!",
                                 font=("Helvetica", 16), text_color="#FF7878")],
                        [sg.HSeparator(pad=(0, 10))],
