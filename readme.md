@@ -33,14 +33,13 @@ Gestures are dynamic full body movements. Some complicated algorithms track coor
 
 1. Run the pose recorder program
 2. Press `S` to save a pose
-3. Press `D` to delete the last pose
-4. Press `1`-`3` to switch between the 3 detection strategies
-5. Press `ESC` to exit the program
+3. Press `D` to delete all the poses
+4. Press `ESC` to exit the program
 
 ## TODO
 
 - [ ] Add a GUI
-- [ ] Add a way to save/load the poses to/from a file
-- [ ] Change the detection to be able to handle multiple poses
+- [x] Add a way to save/load the poses to/from a file
+- [x] Change the detection to be able to handle multiple poses
 - [ ] ~~Add a way to calibrate the detection per pose / user's hand size~~
 - [ ] ~~Look into KNIFT/SIFT for pose detection / on-device training?~~
