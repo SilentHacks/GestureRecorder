@@ -1,6 +1,7 @@
 """ the class for recording panel, including importing video and recording live """
 import gesture_recorder as gr
 import pose_recorder as pr
+from utils.ThumbNailUtils import ThumbNailUtils as tn
 
 class RecordPanel:
     def __init__(self, selected_options: dict):
@@ -28,6 +29,7 @@ class RecordPanel:
                 self.gestureVideoRecord()
             else:
                 self.recorder = gr.GestureRecorder(camera)
+                tn.gifVideoCvt(videoFilePath=self.import_path, gestureName=self.name)
 
 
         self.recorder.record(name=self.name)

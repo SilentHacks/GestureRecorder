@@ -17,8 +17,9 @@ class VideoRecorder:
         self.frame_count = 0
         self.recording = False
         self.dataPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                "data/videos/")
-        self.save_dir = f'{self.dataPath}{self.name}.mp4'
+                                "data/videos/" + name + "/")
+
+        self.save_file = f'{self.dataPath}{self.name}.mp4'
         self.cap = cv2.VideoCapture(0)
 
     def run(self):
@@ -60,7 +61,7 @@ class VideoRecorder:
         :return:
         """
         # print("here")
-        self.video = cv2.VideoWriter(self.save_dir, cv2.VideoWriter_fourcc(*'XVID'), self.fps, self.size)
+        self.video = cv2.VideoWriter(self.save_file, cv2.VideoWriter_fourcc(*'XVID'), self.fps, self.size)
 
     def record(self, frame):
         """
@@ -91,7 +92,7 @@ class VideoRecorder:
         if not os.path.exists(self.name):
             os.makedirs(self.name)
 
-        cv2.imwrite(f'{self.save_dir}/{name}.jpg', cv2.flip(frame, 1))
+        cv2.imwrite(f'{self.save_file}/{name}.jpg', cv2.flip(frame, 1))
 
     def clear_frame(self):
         """
