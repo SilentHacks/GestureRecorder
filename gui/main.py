@@ -2,6 +2,7 @@
 
 import PySimpleGUI as sg
 import control_panel as cp
+import record_panel as rp
 import os.path
 import cv2
 def file_input_window() -> str:
@@ -24,6 +25,22 @@ def file_input_window() -> str:
     file_window.close()
 
     return file_path
+
+def naming_window() -> str:
+    name = ""
+    layout = [[sg.Text("Please Enter a Name for the Gesture / Pose: ", font="Helvetica 14 bold")],
+              [sg.Text("Name", font="Helvetica 14 bold"), sg.InputText(key="-NAME-", size=(50, 4))],
+              [sg.Button("OK", size=(10, 1), font="Helvetica 16 bold"), sg.Exit()]]
+    name_window = sg.Window("Name Input", layout, keep_on_top=True)
+    while True:
+        event, values = name_window.read()
+        if event == "Exit" or event == sg.WIN_CLOSED:
+            break
+        if event == "OK":
+            name = values["-NAME-"]
+            break
+    name_window.close()
+    return name
 
 def run():
     controlPanel = cp.ControlPanel(record_live=True, hand_pose=True, sensitivity=5, upper_body=True)
@@ -61,7 +78,17 @@ def run():
                 values["import_path"] = file_path
                 print(values)
 
+            name = naming_window()
+            if name == "":
+                sg.popup("Please enter a name for the gesture / pose!", font="Helvetica 14", keep_on_top=True)
+                continue
+
+            print("here: ", name)
             selected_options: dict = controlPanel.parse_values(values)
+            selected_options["name"] = name
+            recordPanel = rp.RecordPanel(selected_options)
+            recordPanel.initRecorder()
+
             print("final options are: ", selected_options)
 
             print("Options saved, start recording!")

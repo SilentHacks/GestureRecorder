@@ -5,34 +5,36 @@ import pose_recorder as pr
 class RecordPanel:
     def __init__(self, selected_options: dict):
         self.record_mode = selected_options.get("record_mode")  # hand or body
-        self.import_path = selected_options.get("import_mode")  # file path or none
+        self.import_path = selected_options.get("import_path")  # file path or none
         self.sensitivity = selected_options.get("sensitivity")  # 1-10
         self.focus_part = selected_options.get("focus_part")  # upper or lower
+        self.name = selected_options.get("name")  # name of the gesture / pose
         self.recorder = None
 
-    def parseSensivitity(self):
-        # TODO parse the sensitivity to a range of values that can be shared with the recorder
-        pass
     def parseFocusPart(self):
         # TODO parse the focus part to certain value that can be shared with the recorder
         pass
+
     def initRecorder(self):
+        if self.import_path is not None:
+            camera = self.import_path
+        else:
+            camera = 0  # default camera is 0
+
         if self.record_mode == "hand":
-            if self.import_path is not None:
-                self.recorder = pr.PoseRecorder(camera=self.import_path)
+            self.recorder = pr.PoseRecorder(camera, pose_leniency=self.sensitivity / 10) # default camera is 0
+        else:
+            if camera == 0:
+                self.gestureVideoRecord()
             else:
-                self.recorder = pr.PoseRecorder(camera=0)
-            self.recorder = pr.PoseRecorder()
-        elif self.record_mode == "body":
-            self.recorder = gr.GestureRecorder()
+                self.recorder = gr.GestureRecorder(camera)
 
-    # import mode being set as camera num or file path
-    def setImportMode(self, recorder):
+
+        self.recorder.record(name=self.name)
+        self.recorder.close()
+        print("recorded")
+
+    def gestureVideoRecord(self):
         pass
 
 
-    def save(self):
-        pass
-
-    def close(self):
-        pass

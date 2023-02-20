@@ -7,6 +7,8 @@ import numpy as np
 from utils.config import mp_hands, mp_drawing
 from utils.fps_tracker import FPSTracker
 
+from utils.ThumbNailUtils import ThumbNailUtils as tn
+
 NUM_LANDMARKS = 21
 INFO_TEXT = ('"S" to save the pose\n'
              '"D" to delete the pose\n'
@@ -16,15 +18,15 @@ INFO_TEXT = ('"S" to save the pose\n'
 class PoseRecorder:
     def __init__(
             self,
-            camera='data/videos/wave_right_hand/1.mov',
-            num_hands: int = 2,
+            camera=None,
+            num_hands: int = 1,
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
             min_tracking_confidence: float = 0.7,
             model_complexity: int = 0,
             pose_leniency: float = 0.3,
             pose_threshold: float = 0.99,
-            save_dir: str = 'data/models/poses'
+            save_dir: str = '../data/models/poses'
     ):
         """
         Initialize the recorder.
@@ -51,7 +53,7 @@ class PoseRecorder:
         self.poses = self.load_poses(save_dir=save_dir)
         self.detected = {num: None for num in range(num_hands)}
 
-    def __del__(self):
+    def close(self):
         cv2.destroyAllWindows()
         self.capture.release()
 
@@ -201,7 +203,7 @@ class PoseRecorder:
 
         return distances
 
-    def handle_key(self, key: int, ratios: np.ndarray = None, hand_landmarks=None, name=None) -> bool:
+    def handle_key(self, key: int, ratios: np.ndarray = None, hand_landmarks=None, name=None, frame=None) -> bool:
         """
         Handle key presses.
 
@@ -221,6 +223,7 @@ class PoseRecorder:
                 ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
 
             self.save_pose(ratios=ratios, name=name)
+            tn.frameImgCvt(name=name, frame=frame)
 
         return False
 
@@ -240,7 +243,7 @@ class PoseRecorder:
             fps_tracker = FPSTracker()
             while True:
                 ret, frame = self.capture.read()
-
+                # print("here to do the loop")
                 if ret:
                     # To improve performance, mark the image as not writeable to pass by reference
                     frame.flags.writeable = False
@@ -263,12 +266,13 @@ class PoseRecorder:
                                 self.detected[index] = self.check_pose(ratios=ratios)
                     cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
                 else:
+                    print("ready to do again")
                     # If the video is over, start again
                     self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
 
                 key = cv2.waitKey(1)
-                if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks, name=name):
+                if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks, name=name, frame=frame):
                     break
 
 

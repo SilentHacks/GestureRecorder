@@ -30,7 +30,7 @@ class GestureRecorder:
             min_detection_confidence: float = 0.5,
             min_tracking_confidence: float = 0.5,
             model_complexity: int = 1,
-            save_dir: str = 'data/models/gestures',
+            save_dir: str = '../data/models/gestures',
     ):
         """
         Initialize the recorder.
@@ -50,6 +50,10 @@ class GestureRecorder:
     def save_json(self, processed, name):
         with open(f'{self.save_dir}/{name}.json', 'w') as f:
             json.dump(processed, f, indent=4)
+
+    def close(self):
+        cv2.destroyAllWindows()
+        self.capture.release()
 
     def record(self, name: str):
         history = {num.value: [] for num in FOCUS_POINTS}
@@ -84,7 +88,11 @@ class GestureRecorder:
                 if cv2.waitKey(5) & 0xFF == 27:
                     break
 
-            self.capture.release()
+            # self.capture.release()
 
         processed = process_landmarks(history, plot=True)
         self.save_json(processed, name)
+
+if __name__ == '__main__':
+    g = GestureRecorder()
+    g.record(name='punch')
