@@ -11,12 +11,14 @@ class ControlPanel:
                  record_live: bool = True,
                  hand_pose: bool = True,
                  sensitivity: int = 5,
-                 upper_body: bool = True):
+                 upper_body: bool = True,
+                 name: str = None):
 
-        self.large_title_font = "ArialBlack 24 bold"
-        self.title_font = "ArialBlack 18 bold"
-        self.small_title_font = "ArialBlack 16"
-        self.window_size = (400, 510)
+        self.large_title_font = "Helvetica 24 bold"
+        self.title_font = "Helvetica 18 bold"
+        self.small_title_font = "Helvetica 16"
+        self.window_size = (500, 550)
+        self.name = name
 
         sg.LOOK_AND_FEEL_TABLE['MyNewTheme'] = {'BACKGROUND': '#FFFFFF',
                                                 'TEXT': '#fff4c9',
@@ -31,15 +33,15 @@ class ControlPanel:
         # sg.theme('MyNewTheme')
 
         sg.SetOptions(
-            button_color=sg.COLOR_SYSTEM_DEFAULT
+            # button_color=sg.COLOR_SYSTEM_DEFAULT
             # , text_color=sg.COLOR_SYSTEM_DEFAULT
-            , border_width=0
-            , auto_size_text=True
+            border_width=0
+            , auto_size_text=False
         )
 
         self.layout = [[sg.Button("CLOSE", size=(6, 1), button_color="white on #4A4A4A", font="Impact 18 bold"),
                         sg.Text("Notice, Dynamic gestures cannot be \n longer than 2 seconds (60 frames)!",
-                                font=("Helvetica", 16), text_color="#FF7878")],
+                                font=("Helvetica", 10), text_color="#FF7878")],
                        [sg.HSeparator(pad=(0, 10))],
                        [sg.Text("Select a Record Method", font=self.large_title_font)],
                        [sg.Radio("Record Live", "RADIO0", size=(12, 1), font=self.small_title_font, default=record_live,

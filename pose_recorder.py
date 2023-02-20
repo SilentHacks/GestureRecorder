@@ -18,7 +18,7 @@ INFO_TEXT = ('"S" to save the pose\n'
 class PoseRecorder:
     def __init__(
             self,
-            camera=None,
+            camera=0,
             num_hands: int = 1,
             static_image_mode: bool = False,
             min_detection_confidence: float = 0.7,
@@ -26,7 +26,7 @@ class PoseRecorder:
             model_complexity: int = 0,
             pose_leniency: float = 0.3,
             pose_threshold: float = 0.99,
-            save_dir: str = '../data/models/poses'
+            save_dir: str = 'data/models/poses'
     ):
         """
         Initialize the recorder.

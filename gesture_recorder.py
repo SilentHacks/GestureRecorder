@@ -30,7 +30,7 @@ class GestureRecorder:
             min_detection_confidence: float = 0.5,
             min_tracking_confidence: float = 0.5,
             model_complexity: int = 1,
-            save_dir: str = '../data/models/gestures',
+            save_dir: str = 'data/models/gestures',
     ):
         """
         Initialize the recorder.
