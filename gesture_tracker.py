@@ -37,7 +37,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ["punch"]
+        include = ["hadouken"]
         for file in os.listdir("data/models/gestures"):
             if file.endswith(".json") and file[:-5] in include:
                 with open(os.path.join("data/models/gestures", file), "r") as f:
@@ -113,20 +113,18 @@ class GestureTracker:
             distances = []
             for landmark_id, points in gesture['points'].items():
                 count = 0
-                for coord in processed[int(landmark_id)]:
+                for coord in self.point_history[int(landmark_id)]:
                     if coord[0] == 0 and coord[1] == 0:
                         count += 1
                         if count > BUFFER_SIZE / 2:
-                            break
-                if count > BUFFER_SIZE / 2:
-                    return
+                            return
 
                 distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
             # print(gesture['name'], distances, mean)
-            threshold = 0.15 + 0.15 * len(distances)
+            threshold = 0.1 + 0.1 * len(distances)
             if mean < threshold:
                 scores.append((gesture['name'], mean))
 

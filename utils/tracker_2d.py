@@ -122,7 +122,7 @@ def process_landmarks(landmark_history: dict[..., list[tuple[int, int]]], includ
         # smoothed_points = np.array(smooth_gesture(tracking_points))
         # savgol the smoothed points
         smoothed_points = savgol_filter_points(smoothed_points, 8, 3)
-        smoothed_points = simplify_gesture(smoothed_points, 0.01)
+        smoothed_points = simplify_gesture(smoothed_points, 0.007)
 
         if isinstance(smoothed_points, np.ndarray):
             smoothed_points = smoothed_points.tolist()
