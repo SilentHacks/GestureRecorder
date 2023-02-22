@@ -21,7 +21,7 @@ def record(gesture_name, file_name):
     history = {num.value: [] for num in FOCUS_POINTS}
 
     with mp_pose.Pose(
-            static_image_mode=True,
+            static_image_mode=False,
             model_complexity=1,
             min_detection_confidence=0.5
     ) as pose:
@@ -46,7 +46,7 @@ def record(gesture_name, file_name):
                     history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
 
             cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if cv2.waitKey(5) & 0xFF == 27:
+            if cv2.waitKey(30) & 0xFF == 27:
                 break
 
         cap.release()
@@ -56,18 +56,18 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'punch'
+gesture = 'tennis_swing'
 
 
 def main():
-    history = record(gesture, '4')
+    history = record(gesture, '14')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)
 
 
 def save_json(processed):
-    with open(f'data/models/gestures/{gesture}.json', 'w') as f:
+    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 
