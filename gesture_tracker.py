@@ -13,6 +13,7 @@ from pose_recorder import mp_drawing
 from utils.config import FOCUS_POINTS, mp_pose
 from utils.fps_tracker import FPSTracker
 from utils.tracker_2d import process_landmarks
+from utils.tracker_3d import process_landmarks_3d
 
 BUFFER_SIZE = 25
 MOVE_MOUSE = False
@@ -37,7 +38,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ["tennis_swing2", "punch2", "baseball_swing2", "hadouken2"]
+        include = ["punch3d", "tennis_swing3d", "baseball_swing3d"]
         for file in os.listdir("data/models/gestures"):
             if file.endswith(".json") and file[:-5] in include:
                 with open(os.path.join("data/models/gestures", file), "r") as f:
@@ -100,15 +101,15 @@ class GestureTracker:
         landmark = results.pose_world_landmarks.landmark[num]
 
         if landmark.visibility < 0.7:
-            return 0, 0
+            return 0, 0, 0
 
-        return landmark.x, landmark.y
+        return landmark.x, landmark.y, landmark.z
 
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
             landmark_ids = {int(idx) for idx in gesture['points'].keys()}
-            processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
+            processed = process_landmarks_3d(self.point_history, include_landmarks=landmark_ids)
 
             distances = []
             num_points = 0
@@ -125,9 +126,11 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            threshold = 0.77 + 0.01 * num_points
+            threshold = 0.9 + 0.03 * num_points
+            # print(gesture['name'], mean, threshold)
             if mean < threshold:
-                scores.append((gesture['name'], mean))
+                # print(gesture['name'], mean, threshold)
+                scores.append((gesture['name'], threshold - mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])

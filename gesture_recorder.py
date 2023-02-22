@@ -9,6 +9,7 @@ from scipy.spatial.distance import euclidean
 
 from utils.config import FOCUS_POINTS, mp_drawing, mp_pose, draw_style
 from utils.tracker_2d import process_landmarks
+from utils.tracker_3d import process_landmarks_3d
 
 
 def record(gesture_name, file_name):
@@ -43,7 +44,7 @@ def record(gesture_name, file_name):
             if results.pose_world_landmarks:  # type: ignore
                 for num in FOCUS_POINTS:
                     landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore
-                    history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
+                    history[num.value].append((landmark.x, landmark.y, landmark.z) if landmark else (0, 0, 0))
 
             cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
             if cv2.waitKey(5) & 0xFF == 27:
@@ -56,18 +57,18 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'tennis_swing'
+gesture = 'baseball_swing'
 
 
 def main():
-    history = record(gesture, '14')
-    processed = process_landmarks(history, plot=True)
+    history = record(gesture, '12')
+    processed = process_landmarks_3d(history, plot=True)
 
     save_json(processed)
 
 
 def save_json(processed):
-    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
+    with open(f'data/models/gestures/{gesture}3d.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 
