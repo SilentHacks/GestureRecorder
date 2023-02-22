@@ -46,7 +46,7 @@ def record(gesture_name, file_name):
                     history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
 
             cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if cv2.waitKey(30) & 0xFF == 27:
+            if cv2.waitKey(5) & 0xFF == 27:
                 break
 
         cap.release()
