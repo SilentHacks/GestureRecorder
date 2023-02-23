@@ -45,22 +45,22 @@ def record(gesture_name, file_name):
                     landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore
                     history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
 
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+            # cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            # if cv2.waitKey(5) & 0xFF == 27:
+            #     break
 
         cap.release()
 
-    print('Frames:', len(history[list(history.keys())[0]]))
+    # print('Frames:', len(history[list(history.keys())[0]]))
 
     return history
 
 
-gesture = 'tennis_swing'
+gesture = 'kick'
 
 
 def main():
-    history = record(gesture, '14')
+    history = record(gesture, '2')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)
@@ -71,8 +71,8 @@ def save_json(processed):
         json.dump(processed, f, indent=4)
 
 
-def plot_json():
-    with open(f'data/models/gestures/{gesture}.json', 'r') as f:
+def plot_json(_gesture=None):
+    with open(f'test/models/gestures/{_gesture or gesture}.json', 'r') as f:
         data = json.load(f)
 
     for landmark_id, points in data.items():
@@ -104,4 +104,4 @@ def compare():
 
 
 if __name__ == '__main__':
-    main()
+    plot_json('cross')

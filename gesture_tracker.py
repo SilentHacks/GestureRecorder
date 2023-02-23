@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 import json
 import os
-import time
 from collections import deque
 
 import cv2
 from fastdtw import fastdtw
-from pynput.mouse import Controller
-from pynput.keyboard import Key, Controller as KeyboardController
 from scipy.spatial.distance import euclidean
 
 from pose_recorder import mp_drawing
@@ -18,8 +17,11 @@ BUFFER_SIZE = 25
 MOVE_MOUSE = False
 
 
+gesture = 'throw'
+
+
 class GestureTracker:
-    def __init__(self, camera: int = 0):
+    def __init__(self, camera: int | str = 0):
         """
         Initialize the recorder.
 
@@ -29,18 +31,17 @@ class GestureTracker:
         self.point_history = {num.value: deque(maxlen=BUFFER_SIZE) for num in FOCUS_POINTS}
         self.color_keep = 0
         self.detected = ''
-        self.mouse = Controller()
-        self.keyboard = KeyboardController()
 
         self.gestures = self.load_gestures()
 
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ["tennis_swing2", "punch2", "baseball_swing2", "hadouken2"]
-        for file in os.listdir("data/models/gestures"):
+        include = [gesture]
+        path = "test/models/gestures"
+        for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
-                with open(os.path.join("data/models/gestures", file), "r") as f:
+                with open(os.path.join(path, file), "r") as f:
                     points = json.load(f)
                     gestures.append({
                         "name": points.get('name') or file[:-5],
@@ -126,6 +127,7 @@ class GestureTracker:
 
             mean = sum(distances) / len(distances)
             threshold = 0.77 + 0.01 * num_points
+            print(gesture['name'], mean, threshold)
             if mean < threshold:
                 scores.append((gesture['name'], mean))
 
@@ -133,70 +135,12 @@ class GestureTracker:
             scores.sort(key=lambda x: x[1])
             self.color_keep = 10
             self.detected = scores[0][0]
-            # print(self.detected, scores[0][1])
-            # self.handle_input()
-            if self.detected != 'front_stroke':
+            if self.detected != 'double_wave':
                 self.clear_history()
 
     def clear_history(self):
         for k in self.point_history.keys():
             self.point_history[k].clear()
-
-    def handle_input(self):
-        """Before you freak out, this is just for testing."""
-        if self.detected == 'baseball_swing':
-            self.mouse.position = (1100, 800)
-            time.sleep(0.03)
-
-            # Drag mouse to the left with deceleration
-            for i in range(60, 25, -1):
-                self.mouse.move(-i, -i)
-                time.sleep(0.01)
-
-        elif self.detected == 'tennis_swing':
-            # Drag mouse to the left with deceleration
-            self.mouse.position = (1200, 400)
-            time.sleep(0.03)
-
-            for i in range(60, 25, -1):
-                self.mouse.move(-i, -i // 2)
-                time.sleep(0.01)
-
-        elif self.detected == 'back_swing':
-            # Drag mouse to the right with deceleration
-            self.mouse.position = (400, 400)
-            time.sleep(0.03)
-
-            for i in range(60, 25, -1):
-                self.mouse.move(i, -i // 2)
-                time.sleep(0.01)
-
-        elif self.detected == 'serve':
-            self.keyboard.press('i')
-            time.sleep(0.03)
-            self.keyboard.release('i')
-
-            self.keyboard.press('s')
-            time.sleep(0.03)
-            self.keyboard.release('s')
-
-            self.keyboard.press('i')
-            time.sleep(0.03)
-            self.keyboard.release('i')
-
-            self.keyboard.press('s')
-            time.sleep(0.03)
-            self.keyboard.release('s')
-
-        elif self.detected == 'punch':
-            self.keyboard.press(Key.enter)
-            time.sleep(0.04)
-            self.keyboard.release(Key.enter)
-
-        elif self.detected == 'punch_left':
-            self.keyboard.press('a')
-            time.sleep(0.04)
-            self.keyboard.release('a')
 
     @staticmethod
     def handle_key(key: int) -> bool:
@@ -226,7 +170,9 @@ class GestureTracker:
         ) as pose:
             fps_tracker = FPSTracker()
             while True:
-                _, frame = self.capture.read()
+                ret, frame = self.capture.read()
+                if not ret:
+                    break
 
                 # To improve performance, mark the image as not writeable to pass by reference
                 frame.flags.writeable = False
@@ -246,11 +192,14 @@ class GestureTracker:
                 if display:
                     cv2.imshow('Gesture Tracker', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
 
-                    key = cv2.waitKey(1)
+                    key = cv2.waitKey(5)
                     if self.handle_key(key=key):
                         break
 
 
 if __name__ == '__main__':
-    recorder = GestureTracker()
-    recorder.run()
+    # run the program for each vid in test/dataset/tick
+    vid_path = f'test/dataset/{gesture}'
+    for vid in os.listdir(vid_path):
+        recorder = GestureTracker(camera=os.path.join(vid_path, vid))
+        recorder.run()
