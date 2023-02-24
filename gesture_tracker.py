@@ -53,7 +53,7 @@ def calculate_ratios(landmarks) -> np.ndarray:
 
 
 class GestureTracker:
-    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.05, pose_threshold: float = 0.99):
+    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.1, pose_threshold: float = 0.99):
         """
         Initialize the recorder.
 
@@ -74,7 +74,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['throw', 'clap', 'front_kick', 'single_wave']
+        include = ['swipe', 'throw', 'clap', 'front_kick', 'single_wave']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
@@ -145,6 +145,9 @@ class GestureTracker:
         :param ratios: list of ratios
         :return: True if pose surpasses threshold, False otherwise
         """
+        if pose is None:
+            return True
+
         wrong_threshold = len(ratios) * (1 - self.pose_threshold)
         deviations = np.abs(ratios - pose)
         wrong = np.sum(deviations > self.pose_leniency)
@@ -162,8 +165,12 @@ class GestureTracker:
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
-            if gesture['first'] is not None and not self.check_pose(calculate_ratios(self.landmarks), gesture['first']):
+            if 'active' not in gesture or not gesture['active']:
+                gesture['active'] = self.check_pose(calculate_ratios(self.landmarks), gesture['first'])
+
+            if not gesture['active']:
                 continue
+
             landmark_ids = {int(idx) for idx in gesture['points'].keys()}
             processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
 
@@ -182,16 +189,18 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            threshold = 0.77 + 0.01 * num_points
-            # print(gesture['name'], mean, threshold)
-            self.scores.append((gesture['name'], mean))
-            if mean < threshold:
-                scores.append((gesture['name'], mean))
 
-        if scores:
-            scores.sort(key=lambda x: x[1])
-            self.color_keep = 10
-            self.detected = scores[0][0]
+            self.scores.append((gesture['name'], mean))
+
+        #     threshold = 1.2 + 0.01 * num_points
+        #     print(gesture['name'], mean, threshold)
+        #     if mean < threshold:
+        #         scores.append((gesture['name'], mean))
+        #
+        # if scores:
+        #     scores.sort(key=lambda x: x[1])
+        #     self.color_keep = 10
+        #     self.detected = scores[0][0]
             # if self.detected != 'double_wave':
             #     self.clear_history()
 
@@ -274,10 +283,13 @@ def confusion_matrix():
 
         paths.append(os.path.join(vid_path, vid))
 
-    with multiprocessing.Pool(8) as p:
+    with multiprocessing.Pool(4) as p:
         results = p.map(calc, paths)
 
     for result in results:
+        if len(result) == 0:
+            result = ['none', 0]
+
         if result[0] not in matrix:
             matrix[result[0]] = 0
 

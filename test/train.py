@@ -70,7 +70,7 @@ def record(path):
 def main():
     path = 'dataset'
     for gesture in os.listdir(path):
-        if gesture == '.DS_Store' or gesture != 'front_kick':
+        if gesture == '.DS_Store' or gesture != 'swipe':
             continue
 
         data = []
@@ -81,11 +81,12 @@ def main():
             history, first = record(path=os.path.join(path, gesture, file))
             processed = process_landmarks(history)
             data.append((file, processed, first))
+            # break
 
         # Find the data that has the smallest distance to the other data
         min_distance = float('inf')
-        min_file = None
-        best_data = None
+        min_file = data[0][0]
+        best_data = data[0][1], data[0][2]
         for i in range(len(data)):
             for j in range(i + 1, len(data)):
                 if len(data[i][1]) != len(data[j][1]):
