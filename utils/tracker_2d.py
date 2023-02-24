@@ -3,9 +3,9 @@ from matplotlib import pyplot as plt
 from scipy.signal import savgol_filter
 
 
-def normalize_gesture(gesture: np.ndarray):
+def normalize_gesture(gesture: np.ndarray, axis_length=None):
     """Normalize the gesture by translating it to the origin and scaling it to fit in a unit square"""
-    axis_length = max(gesture[:, 0].ptp(), gesture[:, 1].ptp()) or 1
+    axis_length = axis_length or (max(gesture[:, 0].ptp(), gesture[:, 1].ptp()) or 1)
     return (gesture - gesture.mean(axis=0)) / axis_length
 
 
@@ -82,22 +82,34 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     """Select the relevant landmarks from the tracking points based on the variance of its signal"""
     good_landmarks = set()
     numpy_landmarks = {}
+    max_axis_length = 0
 
     for landmark_id, tracking_points in landmark_history.items():
         tracking_points = np.array(tracking_points)
         numpy_landmarks[landmark_id] = tracking_points
+        axis_length = max(tracking_points[:, 0].ptp(), tracking_points[:, 1].ptp()) or 1
+        if axis_length > max_axis_length:
+            max_axis_length = axis_length
+
+    for landmark_id, tracking_points in numpy_landmarks.items():
         # Smooth the tracking points using a median filter with r=3
         # smoothed_points = laplacian_smoothing(tracking_points)
 
-        normalized = normalize_gesture(tracking_points)
+        normalized = normalize_gesture(tracking_points, axis_length=max_axis_length)
+        numpy_landmarks[landmark_id] = normalized
         smoothed_points = laplacian_smoothing(normalized)
+
+        # plot the smoothed_points
+        # plt.plot(smoothed_points[:, 0], smoothed_points[:, 1])
 
         # Check the variance of the signal to determine if the landmark is relevant
         x_var = np.var(smoothed_points[:, 0])
         y_var = np.var(smoothed_points[:, 1])
         # print(landmark_id, x_var, y_var)
-        if x_var > 0.1 or y_var > 0.1:
+        if x_var > 0.02 or y_var > 0.02:
             good_landmarks.add(landmark_id)
+
+    # plt.show()
 
     return good_landmarks, numpy_landmarks
 
