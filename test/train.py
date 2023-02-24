@@ -2,9 +2,11 @@ import json
 import os
 
 import cv2
+import numpy as np
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 
+from gesture_tracker import calculate_ratios
 from utils.config import FOCUS_POINTS, mp_pose, mp_drawing, draw_style
 from utils.tracker_2d import process_landmarks
 
@@ -20,6 +22,7 @@ def record(path):
         cap.set(cv2.CAP_PROP_POS_FRAMES, diff // 2)
 
     history = {num.value: [] for num in FOCUS_POINTS}
+    first = None
 
     with mp_pose.Pose(
             static_image_mode=False,
@@ -42,29 +45,32 @@ def record(path):
             results = pose.process(image)
 
             # Draw the pose annotation on the image.
-            image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            mp_drawing.draw_landmarks(image, results.pose_landmarks,  # type: ignore
-                                      mp_pose.POSE_CONNECTIONS, landmark_drawing_spec=draw_style)
+            # image.flags.writeable = True
+            # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            # mp_drawing.draw_landmarks(image, results.pose_landmarks,  # type: ignore
+            #                           mp_pose.POSE_CONNECTIONS, landmark_drawing_spec=draw_style)
 
             if results.pose_world_landmarks:  # type: ignore
                 for num in FOCUS_POINTS:
                     landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore
                     history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
 
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+            # cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            # if cv2.waitKey(5) & 0xFF == 27:
+            #     break
+
+            if frame == 1:
+                first = calculate_ratios(results.pose_landmarks)
 
         cap.release()
 
-    return history
+    return history, first
 
 
 def main():
     path = 'dataset'
     for gesture in os.listdir(path):
-        if gesture == '.DS_Store' or gesture != 'single_wave':
+        if gesture == '.DS_Store' or gesture != 'front_kick':
             continue
 
         data = []
@@ -72,10 +78,9 @@ def main():
             if file == '.DS_Store':
                 continue
             print(f'Gesture: {gesture}, File: {file}')
-            history = record(path=os.path.join(path, gesture, file))
+            history, first = record(path=os.path.join(path, gesture, file))
             processed = process_landmarks(history)
-            data.append((file, processed))
-            break
+            data.append((file, processed, first))
 
         # Find the data that has the smallest distance to the other data
         min_distance = float('inf')
@@ -102,11 +107,11 @@ def main():
                 if distances < min_distance:
                     min_distance = distances
                     min_file = data[i][0]
-                    best_data = data[i][1]
+                    best_data = data[i][1], data[i][2]
 
         print(f'Gesture: {gesture}, Min Distance: {min_distance}, Min File: {min_file}')
         with open(f'models/gestures/{gesture}.json', 'w') as f:
-            json.dump(best_data, f)
+            json.dump({'points': best_data[0], 'first': best_data[1].tolist()}, f)
 
 
 if __name__ == '__main__':

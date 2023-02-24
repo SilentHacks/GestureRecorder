@@ -6,6 +6,7 @@ import multiprocessing
 from collections import deque
 
 import cv2
+import numpy as np
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 
@@ -21,8 +22,38 @@ MOVE_MOUSE = False
 gesture = 'single_wave'
 
 
+def calculate_ratios(landmarks) -> np.ndarray:
+    """
+    Similar to calculate_ratios_2, but instead of ratios,
+    we calculate distances from landmark 0, normalized to 0-1.
+    This works pretty well with pose_leniency 0.3 and threshold 0.99.
+    The advantage of this method is that it allows for any rotation of the hand, in any plane.
+    Creates an array of size 21.
+
+    :param landmarks: body landmarks
+    :return: numpy array of distances from landmark 0, normalized to 0-1
+    """
+    x = []
+    y = []
+    for landmark in landmarks.landmark:
+        x.append(landmark.x)
+        y.append(landmark.y)
+
+    x = np.array(x)
+    y = np.array(y)
+
+    zero_x, zero_y = x[0], y[0]
+    x -= zero_x
+    y -= zero_y
+
+    distances = np.square(x) + np.square(y)
+    distances /= np.max(distances)
+
+    return distances
+
+
 class GestureTracker:
-    def __init__(self, camera: int | str = 0):
+    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.05, pose_threshold: float = 0.99):
         """
         Initialize the recorder.
 
@@ -33,21 +64,30 @@ class GestureTracker:
         self.color_keep = 0
         self.detected = ''
 
+        self.pose_leniency = pose_leniency
+        self.pose_threshold = pose_threshold
+        self.landmarks = None
+
         self.gestures = self.load_gestures()
         self.scores = []
 
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['throw', 'clap', 'front_kick', 'wave']
+        include = ['throw', 'clap', 'front_kick', 'single_wave']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
                 with open(os.path.join(path, file), "r") as f:
                     points = json.load(f)
+                    first = points.get('first')
+                    if first:
+                        first = np.array(first)
+
                     gestures.append({
                         "name": points.get('name') or file[:-5],
-                        "points": points.get('points') or points
+                        "points": points.get('points') or points,
+                        "first": first
                     })
 
         return gestures
@@ -98,6 +138,18 @@ class GestureTracker:
 
         return image
 
+    def check_pose(self, ratios: np.ndarray, pose):
+        """
+        Check if the pose is within the leniency and threshold of the saved pose.
+
+        :param ratios: list of ratios
+        :return: True if pose surpasses threshold, False otherwise
+        """
+        wrong_threshold = len(ratios) * (1 - self.pose_threshold)
+        deviations = np.abs(ratios - pose)
+        wrong = np.sum(deviations > self.pose_leniency)
+        return wrong <= wrong_threshold
+
     @staticmethod
     def get_centre_point(results, num):
         landmark = results.pose_world_landmarks.landmark[num]
@@ -110,6 +162,8 @@ class GestureTracker:
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
+            if gesture['first'] is not None and not self.check_pose(calculate_ratios(self.landmarks), gesture['first']):
+                continue
             landmark_ids = {int(idx) for idx in gesture['points'].keys()}
             processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
 
@@ -128,18 +182,18 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            # threshold = 0.77 + 0.01 * num_points
+            threshold = 0.77 + 0.01 * num_points
             # print(gesture['name'], mean, threshold)
             self.scores.append((gesture['name'], mean))
-        #     if mean < threshold:
-        #         scores.append((gesture['name'], mean))
-        #
-        # if scores:
-        #     scores.sort(key=lambda x: x[1])
-        #     self.color_keep = 10
-        #     self.detected = scores[0][0]
-        #     if self.detected != 'double_wave':
-        #         self.clear_history()
+            if mean < threshold:
+                scores.append((gesture['name'], mean))
+
+        if scores:
+            scores.sort(key=lambda x: x[1])
+            self.color_keep = 10
+            self.detected = scores[0][0]
+            # if self.detected != 'double_wave':
+            #     self.clear_history()
 
     def clear_history(self):
         for k in self.point_history.keys():
@@ -183,6 +237,7 @@ class GestureTracker:
                 frame.flags.writeable = True
 
                 if results.pose_landmarks is not None:  # type: ignore
+                    self.landmarks = results.pose_landmarks  # type: ignore
                     if display:
                         self.draw_landmarks(frame=frame, results=results)  # type: ignore
                     if len(self.point_history[list(self.point_history.keys())[0]]) == BUFFER_SIZE:
@@ -208,7 +263,7 @@ def calc(path):
     return recorder.scores[0]
 
 
-if __name__ == '__main__':
+def confusion_matrix():
     # run the program for each vid in test/dataset/tick
     vid_path = f'test/dataset/{gesture}'
     matrix = {}
@@ -229,3 +284,18 @@ if __name__ == '__main__':
         matrix[result[0]] += 1
 
     print(matrix)
+
+
+def main():
+    # run the program for each vid in test/dataset/tick
+    vid_path = f'test/dataset/{gesture}'
+    for vid in os.listdir(vid_path):
+        if not vid.endswith('.mp4'):
+            continue
+
+        recorder = GestureTracker(camera=os.path.join(vid_path, vid))
+        recorder.run(display=True)
+
+
+if __name__ == '__main__':
+    confusion_matrix()
