@@ -223,7 +223,7 @@ class PoseRecorder:
                 ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
 
             self.save_pose(ratios=ratios, name=name)
-            tn.frameImgCvt(name=name, frame=frame)
+            tn.frameImgCvt(name=name, frame=frame, save_dir=self.save_dir)
 
         return False
 

@@ -13,10 +13,11 @@ from utils.tracker_2d import process_landmarks
 
 def record(gesture_name, file_name):
     # Check if .mov or .mp4 file exists - if it does, choose the right one
-    if not os.path.isfile(path := os.path.join("data", "videos", gesture_name, f"{file_name}.mov")):
-        path = os.path.join("data", "videos", gesture_name, f"{file_name}.mp4")
+    # if not os.path.isfile(path := os.path.join(gesture_name, f"{file_name}.mov")):
+    #     path = os.path.join(gesture_name, f"{file_name}.mp4")
+    # print("path to video: ", path)
 
-    cap = cv2.VideoCapture(path)
+    cap = cv2.VideoCapture(file_name)
 
     history = {num.value: [] for num in FOCUS_POINTS}
 
@@ -56,23 +57,24 @@ def record(gesture_name, file_name):
     return history
 
 
-gesture = 'tennis_swing'
+name = None
 
 
-def main():
-    history = record(gesture, '14')
+def main(name: str = None, videoFileName: str = None, save_file_name: str = None):
+    name = name
+    history = record(name, videoFileName)
     processed = process_landmarks(history, plot=True)
 
-    save_json(processed)
+    save_json(processed, save_file_name, name)
 
 
-def save_json(processed):
-    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
+def save_json(processed, save_file_name: str = None, name = None):
+    with open(f'{save_file_name}/{name}.json', 'w') as f:
         json.dump(processed, f, indent=4)
 
 
 def plot_json():
-    with open(f'data/models/gestures/{gesture}.json', 'r') as f:
+    with open(f'data/models/gestures/{name}.json', 'r') as f:
         data = json.load(f)
 
     for landmark_id, points in data.items():
@@ -86,21 +88,21 @@ def plot_json():
     plt.show()
 
 
-def compare():
-    with open(f'data/models/gestures/{gesture}.json', 'r') as f:
-        model = json.load(f)
-
-    history = record(gesture, '2')
-    landmark_ids = {int(idx) for idx in model.keys()}
-    processed = process_landmarks(history, include_landmarks=landmark_ids, plot=True)
-
-    distances = []
-    for landmark_id, points in model.items():
-        distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
-        # distance = calculate_threshold(points, processed[int(landmark_id)])
-        distances.append(distance)
-
-    print(distances, sum(distances) / len(distances))
+# def compare():
+#     with open(f'data/models/gestures/{gesture}.json', 'r') as f:
+#         model = json.load(f)
+#
+#     history = record(gesture, '2')
+#     landmark_ids = {int(idx) for idx in model.keys()}
+#     processed = process_landmarks(history, include_landmarks=landmark_ids, plot=True)
+#
+#     distances = []
+#     for landmark_id, points in model.items():
+#         distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
+#         # distance = calculate_threshold(points, processed[int(landmark_id)])
+#         distances.append(distance)
+#
+#     print(distances, sum(distances) / len(distances))
 
 
 if __name__ == '__main__':

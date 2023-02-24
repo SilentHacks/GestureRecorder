@@ -3,6 +3,7 @@
 import utils.ThumbNailUtils as tn
 import gesture_recorder as gr
 import pose_recorder as pr
+from utils import VideoRecorder as vr
 
 class RecordPanel:
     def __init__(self, selected_options: dict):
@@ -19,7 +20,9 @@ class RecordPanel:
         if self.is_recordLive:
             capSource = self.camera_num
             if self.record_mode == "pose":
-                # self.recorder = pr.PoseRecorder(capSource, pose_leniency=self.sensitivity / 10)
+                self.recorder = pr.PoseRecorder(camera=capSource, pose_leniency=self.sensitivity / 10, save_dir=self.save_file_path)
+                self.recorder.record(name=self.name)
+                self.recorder.close()
                 print("record live pose")
             else: # gesture
                 self.gestureVideoRecord()
@@ -27,19 +30,21 @@ class RecordPanel:
         else: # import video
             capSource = self.import_path
             if self.record_mode == "pose":
-                self.recorder = pr.PoseRecorder(capSource, pose_leniency=self.sensitivity / 10)
+                self.recorder = pr.PoseRecorder(camera=capSource, pose_leniency=self.sensitivity / 10, save_dir=self.save_file_path)
+                self.recorder.record(name=self.name)
+                self.recorder.close()
                 print("import video pose")
             else: # gesture
-                self.recorder = gr.GestureRecorder(capSource)  # capSource is video file path
-                # tn.ThumbNailUtils.gifVideoCvt(videoFilePath=self.import_path, gestureName=self.name)
+                print("video file is: ", capSource)
+                gr.main(name=self.name, videoFileName=capSource, save_file_name=self.save_file_path)
+                tn.ThumbNailUtils.gifVideoCvt(videoFilePath=self.import_path, gestureName=self.name, save_dir=self.save_file_path)
                 print("import video gesture")
 
-        # add import of output file path for record() function
-        # self.recorder.record(name=self.name)
-        # self.recorder.close()
         print("recorded")
 
     def gestureVideoRecord(self):
+        videoRecorder = vr.VideoRecorder(name=self.name, camera=self.camera_num, dataPath=self.save_file_path)
+        videoRecorder.run()
         pass
 
 

@@ -42,7 +42,7 @@ class Main:
             if os.path.isfile(self.dataFilePath) and os.path.basename(self.dataFilePath).endswith(".json"):
                 # if it is a file then it is a gesture or pose that needs calibration
                 # check if the name of super directory is gesture or pose
-                selected_options["save_file_path"] = os.path.abspath(os.path.join(self.dataFilePath, os.pardir)) + os.sep + self.name + ".json"
+                selected_options["save_file_path"] = os.path.abspath(os.path.join(self.dataFilePath, os.pardir))
 
                 if os.path.basename(os.path.dirname(self.dataFilePath)) == "gestures":
                     print("calibrate gesture")

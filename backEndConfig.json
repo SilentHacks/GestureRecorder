@@ -1,9 +1,10 @@
 {
     "name": "testRandom",
     "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models\\poses\\testRandom.json",
-    "is_gesture": true,
+    "is_new": true,
+    "is_gesture": false,
     "is_recordLive": true,
     "cameraNum": 0,
-    "videoFilePath": "",
-    "sensitivity": 5
+    "videoFilePath": "G:\\GithubRepos\\GestureRecorder\\data\\videos\\wave_right_hand\\1.mov",
+    "sensitivity": 3
 }
