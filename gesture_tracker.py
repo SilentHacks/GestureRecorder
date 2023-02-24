@@ -18,10 +18,6 @@ from utils.tracker_2d import process_landmarks
 BUFFER_SIZE = 25
 MOVE_MOUSE = False
 
-
-gesture = 'hadouken'
-
-
 components = {
     14: [12, 14, 16],
     13: [11, 13, 15],
@@ -84,7 +80,7 @@ def calculate_ratios(landmarks, relevant):
 
 
 class GestureTracker:
-    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.4, pose_threshold: float = 0.99):
+    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.5, pose_threshold: float = 0.99):
         """
         Initialize the recorder.
 
@@ -105,7 +101,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['swipe2', 'throw2', 'clap2', 'front_kick2', 'single_wave2']
+        include = ['throw2', 'clap2', 'front_kick2', 'single_wave2']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
@@ -233,9 +229,9 @@ class GestureTracker:
 
             mean = sum(distances) / len(distances)
 
-            self.scores.append((gesture['name'], mean))
+            # self.scores.append((gesture['name'], mean))
 
-            threshold = 1.2 + 0.01 * num_points
+            threshold = 0.8 + 0.03 * num_points
             # print(gesture['name'], mean, threshold)
             if mean < threshold:
                 scores.append((gesture['name'], mean))
@@ -250,6 +246,8 @@ class GestureTracker:
     def clear_history(self):
         for k in self.point_history.keys():
             self.point_history[k].clear()
+        for gesture in self.gestures:
+            gesture['active'] = False
 
     @staticmethod
     def handle_key(key: int) -> bool:
@@ -280,7 +278,7 @@ class GestureTracker:
             fps_tracker = FPSTracker()
             while True:
                 ret, frame = self.capture.read()
-                if not ret:
+                if not ret or self.detected:
                     break
 
                 # To improve performance, mark the image as not writeable to pass by reference
@@ -310,9 +308,11 @@ class GestureTracker:
 def calc(path):
     recorder = GestureTracker(camera=path)
     recorder.run(display=False)
-    recorder.scores.sort(key=lambda x: x[1])
+    # recorder.scores.sort(key=lambda x: x[1])
+    #
+    # return recorder.scores[0]
 
-    return recorder.scores[0]
+    return recorder.detected or 'none'
 
 
 def confusion_matrix():
@@ -330,15 +330,12 @@ def confusion_matrix():
         results = p.map(calc, paths)
 
     for result in results:
-        if len(result) == 0:
-            result = ['none', 0]
+        if result not in matrix:
+            matrix[result] = 0
 
-        if result[0] not in matrix:
-            matrix[result[0]] = 0
+        matrix[result] += 1
 
-        matrix[result[0]] += 1
-
-    print(matrix)
+    print(gesture, matrix)
 
 
 def main():
@@ -352,5 +349,8 @@ def main():
         recorder.run(display=True)
 
 
+gesture = 'throw'
 if __name__ == '__main__':
-    confusion_matrix()
+    for g in ['throw', 'clap', 'front_kick', 'single_wave']:
+        gesture = g
+        confusion_matrix()
