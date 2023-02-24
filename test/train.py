@@ -60,7 +60,8 @@ def record(path):
             #     break
 
             if frame == 1:
-                first = calculate_ratios(results.pose_landmarks)
+                first = results.pose_landmarks
+                # first = calculate_ratios(results.pose_landmarks)
 
         cap.release()
 
@@ -70,7 +71,7 @@ def record(path):
 def main():
     path = 'dataset'
     for gesture in os.listdir(path):
-        if gesture == '.DS_Store' or gesture != 'swipe':
+        if gesture == '.DS_Store' or gesture != 'single_wave':
             continue
 
         data = []
@@ -111,8 +112,10 @@ def main():
                     best_data = data[i][1], data[i][2]
 
         print(f'Gesture: {gesture}, Min Distance: {min_distance}, Min File: {min_file}')
-        with open(f'models/gestures/{gesture}.json', 'w') as f:
-            json.dump({'points': best_data[0], 'first': best_data[1].tolist()}, f)
+        first = calculate_ratios(best_data[1], relevant=best_data[0].keys())
+        # first = best_data[1].tolist()
+        with open(f'models/gestures/{gesture}2.json', 'w') as f:
+            json.dump({'points': best_data[0], 'first': first}, f)
 
 
 if __name__ == '__main__':

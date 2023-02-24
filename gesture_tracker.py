@@ -19,10 +19,18 @@ BUFFER_SIZE = 25
 MOVE_MOUSE = False
 
 
-gesture = 'single_wave'
+gesture = 'hadouken'
 
 
-def calculate_ratios(landmarks) -> np.ndarray:
+components = {
+    14: [12, 14, 16],
+    13: [11, 13, 15],
+    25: [23, 25, 27],
+    26: [24, 26, 28]
+}
+
+
+def calculate_ratios(landmarks, relevant):
     """
     Similar to calculate_ratios_2, but instead of ratios,
     we calculate distances from landmark 0, normalized to 0-1.
@@ -31,29 +39,52 @@ def calculate_ratios(landmarks) -> np.ndarray:
     Creates an array of size 21.
 
     :param landmarks: body landmarks
+    :param relevant: list of relevant landmarks
     :return: numpy array of distances from landmark 0, normalized to 0-1
     """
-    x = []
-    y = []
-    for landmark in landmarks.landmark:
-        x.append(landmark.x)
-        y.append(landmark.y)
+    # x = []
+    # y = []
+    # for landmark in landmarks.landmark:
+    #     x.append(landmark.x)
+    #     y.append(landmark.y)
+    #
+    # x = np.array(x)
+    # y = np.array(y)
+    #
+    # zero_x, zero_y = x[0], y[0]
+    # x -= zero_x
+    # y -= zero_y
+    #
+    # distances = np.square(x) + np.square(y)
+    # distances /= np.max(distances)
+    #
+    # return distances
 
-    x = np.array(x)
-    y = np.array(y)
+    angles = {}
+    for component in components.values():
+        if any(landmark in relevant for landmark in component):
+            landmark1 = landmarks.landmark[component[0]]
+            landmark2 = landmarks.landmark[component[1]]
+            landmark3 = landmarks.landmark[component[2]]
 
-    zero_x, zero_y = x[0], y[0]
-    x -= zero_x
-    y -= zero_y
+            # calculate angle between 3 landmarks
+            a = np.array([landmark1.x, landmark1.y])
+            b = np.array([landmark2.x, landmark2.y])
+            c = np.array([landmark3.x, landmark3.y])
 
-    distances = np.square(x) + np.square(y)
-    distances /= np.max(distances)
+            ba = a - b
+            bc = c - b
 
-    return distances
+            cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+            angle = np.arccos(cosine_angle)
+
+            angles[component[1]] = angle
+
+    return angles
 
 
 class GestureTracker:
-    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.1, pose_threshold: float = 0.99):
+    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.4, pose_threshold: float = 0.99):
         """
         Initialize the recorder.
 
@@ -74,15 +105,17 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['swipe', 'throw', 'clap', 'front_kick', 'single_wave']
+        include = ['swipe2', 'throw2', 'clap2', 'front_kick2', 'single_wave2']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
                 with open(os.path.join(path, file), "r") as f:
                     points = json.load(f)
                     first = points.get('first')
+                    # if first:
+                    #     first = np.array(first)
                     if first:
-                        first = np.array(first)
+                        first = {int(k): v for k, v in first.items()}
 
                     gestures.append({
                         "name": points.get('name') or file[:-5],
@@ -138,7 +171,7 @@ class GestureTracker:
 
         return image
 
-    def check_pose(self, ratios: np.ndarray, pose):
+    def check_pose(self, ratios, pose):
         """
         Check if the pose is within the leniency and threshold of the saved pose.
 
@@ -148,10 +181,19 @@ class GestureTracker:
         if pose is None:
             return True
 
-        wrong_threshold = len(ratios) * (1 - self.pose_threshold)
-        deviations = np.abs(ratios - pose)
-        wrong = np.sum(deviations > self.pose_leniency)
-        return wrong <= wrong_threshold
+        # wrong_threshold = len(ratios) * (1 - self.pose_threshold)
+        # deviations = np.abs(ratios - pose)
+        # wrong = np.sum(deviations > self.pose_leniency)
+        # return wrong <= wrong_threshold
+
+        for landmark_id in ratios.keys():
+            if landmark_id not in pose:
+                continue
+
+            if np.abs(ratios[landmark_id] - pose[landmark_id]) > self.pose_leniency:
+                return False
+
+        return True
 
     @staticmethod
     def get_centre_point(results, num):
@@ -165,13 +207,14 @@ class GestureTracker:
     def detect_gesture(self):
         scores = []
         for gesture in self.gestures:
+            landmark_ids = {int(idx) for idx in gesture['points'].keys()}
             if 'active' not in gesture or not gesture['active']:
-                gesture['active'] = self.check_pose(calculate_ratios(self.landmarks), gesture['first'])
+                gesture['active'] = self.check_pose(calculate_ratios(self.landmarks, landmark_ids),
+                                                    gesture['first'])
 
             if not gesture['active']:
                 continue
 
-            landmark_ids = {int(idx) for idx in gesture['points'].keys()}
             processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
 
             distances = []
@@ -192,15 +235,15 @@ class GestureTracker:
 
             self.scores.append((gesture['name'], mean))
 
-        #     threshold = 1.2 + 0.01 * num_points
-        #     print(gesture['name'], mean, threshold)
-        #     if mean < threshold:
-        #         scores.append((gesture['name'], mean))
-        #
-        # if scores:
-        #     scores.sort(key=lambda x: x[1])
-        #     self.color_keep = 10
-        #     self.detected = scores[0][0]
+            threshold = 1.2 + 0.01 * num_points
+            # print(gesture['name'], mean, threshold)
+            if mean < threshold:
+                scores.append((gesture['name'], mean))
+
+        if scores:
+            scores.sort(key=lambda x: x[1])
+            self.color_keep = 10
+            self.detected = scores[0][0]
             # if self.detected != 'double_wave':
             #     self.clear_history()
 
