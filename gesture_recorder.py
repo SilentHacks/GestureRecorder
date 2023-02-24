@@ -60,15 +60,15 @@ gesture = 'kick'
 
 
 def main():
-    history = record(gesture, '2')
+    history = record(gesture, '4')
     processed = process_landmarks(history, plot=True)
 
     save_json(processed)
 
 
 def save_json(processed):
-    with open(f'data/models/gestures/{gesture}2.json', 'w') as f:
-        json.dump(processed, f, indent=4)
+    with open(f'data/models/gestures/{gesture}.json', 'w') as f:
+        json.dump(processed, f)
 
 
 def plot_json(_gesture=None):
