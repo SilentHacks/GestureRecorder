@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import multiprocessing
 from collections import deque
 
 import cv2
@@ -17,7 +18,7 @@ BUFFER_SIZE = 25
 MOVE_MOUSE = False
 
 
-gesture = 'throw'
+gesture = 'single_wave'
 
 
 class GestureTracker:
@@ -33,11 +34,12 @@ class GestureTracker:
         self.detected = ''
 
         self.gestures = self.load_gestures()
+        self.scores = []
 
     @staticmethod
     def load_gestures():
         gestures = []
-        include = [gesture]
+        include = ['throw', 'clap', 'front_kick', 'wave']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
@@ -126,17 +128,18 @@ class GestureTracker:
                 distances.append(distance)
 
             mean = sum(distances) / len(distances)
-            threshold = 0.77 + 0.01 * num_points
-            print(gesture['name'], mean, threshold)
-            if mean < threshold:
-                scores.append((gesture['name'], mean))
-
-        if scores:
-            scores.sort(key=lambda x: x[1])
-            self.color_keep = 10
-            self.detected = scores[0][0]
-            if self.detected != 'double_wave':
-                self.clear_history()
+            # threshold = 0.77 + 0.01 * num_points
+            # print(gesture['name'], mean, threshold)
+            self.scores.append((gesture['name'], mean))
+        #     if mean < threshold:
+        #         scores.append((gesture['name'], mean))
+        #
+        # if scores:
+        #     scores.sort(key=lambda x: x[1])
+        #     self.color_keep = 10
+        #     self.detected = scores[0][0]
+        #     if self.detected != 'double_wave':
+        #         self.clear_history()
 
     def clear_history(self):
         for k in self.point_history.keys():
@@ -197,9 +200,32 @@ class GestureTracker:
                         break
 
 
+def calc(path):
+    recorder = GestureTracker(camera=path)
+    recorder.run(display=False)
+    recorder.scores.sort(key=lambda x: x[1])
+
+    return recorder.scores[0]
+
+
 if __name__ == '__main__':
     # run the program for each vid in test/dataset/tick
     vid_path = f'test/dataset/{gesture}'
+    matrix = {}
+    paths = []
     for vid in os.listdir(vid_path):
-        recorder = GestureTracker(camera=os.path.join(vid_path, vid))
-        recorder.run()
+        if not vid.endswith('.mp4'):
+            continue
+
+        paths.append(os.path.join(vid_path, vid))
+
+    with multiprocessing.Pool(8) as p:
+        results = p.map(calc, paths)
+
+    for result in results:
+        if result[0] not in matrix:
+            matrix[result[0]] = 0
+
+        matrix[result[0]] += 1
+
+    print(matrix)
