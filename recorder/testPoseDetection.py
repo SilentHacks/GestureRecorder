@@ -1,7 +1,7 @@
 # create a setup window for pyautogui
 
 import PySimpleGUI as sg
-import screeninfo
+# import screeninfo
 import os.path
 import pose_recorder as pr
 import cv2
@@ -42,8 +42,8 @@ def run():
     window = windowSetup()
 
     # get secren size and set window size
-    screen = screeninfo.get_monitors()[0]
-    window.TKroot.geometry(f"{relative_size[0]}x{relative_size[1]}+{screen.width // 2 - relative_size[0] // 2}+{screen.height // 2 - relative_size[1] // 2}")
+    # screen = screeninfo.get_monitors()[0]
+    # window.TKroot.geometry(f"{relative_size[0]}x{relative_size[1]}+{screen.width // 2 - relative_size[0] // 2}+{screen.height // 2 - relative_size[1] // 2}")
 
     # get the path of super directory
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

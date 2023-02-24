@@ -1,0 +1,9 @@
+{
+    "name": "testRandom",
+    "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models\\poses\\testRandom.json",
+    "is_gesture": true,
+    "is_recordLive": true,
+    "cameraNum": 0,
+    "videoFilePath": "",
+    "sensitivity": 5
+}
