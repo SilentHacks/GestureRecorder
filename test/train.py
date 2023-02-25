@@ -37,7 +37,7 @@ def record(path):
                 break
 
             frame += 1
-            if frame >= MAX_FRAMES:
+            if frame > MAX_FRAMES:
                 break
 
             image.flags.writeable = False
@@ -59,7 +59,7 @@ def record(path):
             # if cv2.waitKey(5) & 0xFF == 27:
             #     break
 
-            if frame == 1:
+            if frame == MAX_FRAMES:
                 first = results.pose_landmarks
                 # first = calculate_ratios(results.pose_landmarks)
 
@@ -112,10 +112,10 @@ def main():
                     best_data = data[i][1], data[i][2]
 
         print(f'Gesture: {gesture}, Min Distance: {min_distance}, Min File: {min_file}')
-        first = calculate_ratios(best_data[1], relevant=best_data[0].keys())
+        last = calculate_ratios(best_data[1], relevant=best_data[0].keys())
         # first = best_data[1].tolist()
-        with open(f'models/gestures/{gesture}2.json', 'w') as f:
-            json.dump({'points': best_data[0], 'first': first}, f)
+        with open(f'models/gestures/{gesture}3.json', 'w') as f:
+            json.dump({'points': best_data[0], 'last': last}, f)
 
 
 if __name__ == '__main__':

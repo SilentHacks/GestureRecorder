@@ -101,13 +101,13 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['throw2', 'clap2', 'front_kick2', 'single_wave2']
+        include = ['throw3', 'clap3', 'front_kick3', 'single_wave3']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
                 with open(os.path.join(path, file), "r") as f:
                     points = json.load(f)
-                    first = points.get('first')
+                    first = points.get('last')
                     # if first:
                     #     first = np.array(first)
                     if first:
@@ -204,44 +204,38 @@ class GestureTracker:
         scores = []
         for gesture in self.gestures:
             landmark_ids = {int(idx) for idx in gesture['points'].keys()}
-            if 'active' not in gesture or not gesture['active']:
-                gesture['active'] = self.check_pose(calculate_ratios(self.landmarks, landmark_ids),
-                                                    gesture['first'])
+            if self.check_pose(calculate_ratios(self.landmarks, landmark_ids), gesture['first']):
+                processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
 
-            if not gesture['active']:
-                continue
+                distances = []
+                num_points = 0
+                for landmark_id, points in gesture['points'].items():
+                    count = 0
+                    for coord in self.point_history[int(landmark_id)]:
+                        if coord[0] == 0 and coord[1] == 0:
+                            count += 1
+                            if count >= BUFFER_SIZE // 2:
+                                return
 
-            processed = process_landmarks(self.point_history, include_landmarks=landmark_ids)
+                    num_points += len(points)
+                    distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
+                    distances.append(distance)
 
-            distances = []
-            num_points = 0
-            for landmark_id, points in gesture['points'].items():
-                count = 0
-                for coord in self.point_history[int(landmark_id)]:
-                    if coord[0] == 0 and coord[1] == 0:
-                        count += 1
-                        if count >= BUFFER_SIZE // 2:
-                            return
+                mean = sum(distances) / len(distances)
 
-                num_points += len(points)
-                distance, _ = fastdtw(processed[int(landmark_id)], points, dist=euclidean)
-                distances.append(distance)
+                # self.scores.append((gesture['name'], mean))
 
-            mean = sum(distances) / len(distances)
-
-            # self.scores.append((gesture['name'], mean))
-
-            threshold = 0.8 + 0.03 * num_points
-            # print(gesture['name'], mean, threshold)
-            if mean < threshold:
-                scores.append((gesture['name'], mean))
+                threshold = 0.8 + 0.03 * num_points
+                # print(gesture['name'], mean, threshold)
+                if mean < threshold:
+                    scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
             self.color_keep = 10
             self.detected = scores[0][0]
-            # if self.detected != 'double_wave':
-            #     self.clear_history()
+            if self.detected != 'single_wave3':
+                self.clear_history()
 
     def clear_history(self):
         for k in self.point_history.keys():
@@ -278,7 +272,7 @@ class GestureTracker:
             fps_tracker = FPSTracker()
             while True:
                 ret, frame = self.capture.read()
-                if not ret or self.detected:
+                if not ret:
                     break
 
                 # To improve performance, mark the image as not writeable to pass by reference
@@ -349,8 +343,14 @@ def main():
         recorder.run(display=True)
 
 
+def run():
+    recorder = GestureTracker(camera=0)
+    recorder.run(display=True)
+
+
 gesture = 'throw'
 if __name__ == '__main__':
-    for g in ['throw', 'clap', 'front_kick', 'single_wave']:
-        gesture = g
-        confusion_matrix()
+    # for g in ['throw', 'clap', 'front_kick', 'single_wave']:
+    #     gesture = g
+    #     confusion_matrix()
+    run()
