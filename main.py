@@ -14,7 +14,7 @@ class Main:
 
 
     def loadConfig(self):
-        configPath = "backEndConfig.json"
+        configPath = "data/backEndConfig.json"
         with open(configPath, "r") as f:
             data = json.load(f)
             self.name = data["name"]

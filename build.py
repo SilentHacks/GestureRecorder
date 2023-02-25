@@ -5,7 +5,7 @@ import sys
 nuitka_args = [
     '--standalone',
     '--assume-yes-for-downloads',
-    '--plugin-enable=numpy',
+    # '--plugin-enable=numpy',
     '--include-data-dir=data=data',
     '--output-dir=Release',
     '--user-plugin=nuitka_plugins/MediapipePlugin.py'
@@ -22,12 +22,9 @@ def build():
                         help='Target file to build.')
     args = parser.parse_args()
     print(args)
-    if args.lto:
-        nuitka_args.append('--lto=yes')
-    else:
-        nuitka_args.append('--lto=no')
-    if not args.console:
-        nuitka_args.append('--windows-disable-console')
+    nuitka_args.append('--lto=yes')
+    # if not args.console:
+    #     nuitka_args.append('--windows-disable-console')
     subprocess.call([sys.executable, "-m", "nuitka"] + nuitka_args + [args.target_file])
 
 

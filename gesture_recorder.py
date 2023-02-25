@@ -1,14 +1,14 @@
 import json
-import os
 
 import cv2
 import numpy as np
-from fastdtw import fastdtw
 from matplotlib import pyplot as plt
-from scipy.spatial.distance import euclidean
 
 from utils.config import FOCUS_POINTS, mp_drawing, mp_pose, draw_style
 from utils.tracker_2d import process_landmarks
+
+
+MAX_FRAMES = 30
 
 
 def record(gesture_name, file_name):
@@ -18,8 +18,14 @@ def record(gesture_name, file_name):
     # print("path to video: ", path)
 
     cap = cv2.VideoCapture(file_name)
+    num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    diff = num_frames - MAX_FRAMES
+    # set the frame position to the middle
+    if diff > 1:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, diff // 2)
 
     history = {num.value: [] for num in FOCUS_POINTS}
+    frame = 0
 
     with mp_pose.Pose(
             static_image_mode=False,
@@ -29,6 +35,10 @@ def record(gesture_name, file_name):
         while cap.isOpened():
             ret, image = cap.read()
             if not ret:
+                break
+
+            frame += 1
+            if frame > MAX_FRAMES:
                 break
 
             image.flags.writeable = False
@@ -44,7 +54,7 @@ def record(gesture_name, file_name):
             if results.pose_world_landmarks:  # type: ignore
                 for num in FOCUS_POINTS:
                     landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore
-                    history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
+                    history[num.value].append((landmark.x, landmark.y) if landmark.visibility > 0.7 else (0, 0))
 
             cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
             if cv2.waitKey(5) & 0xFF == 27:
@@ -63,7 +73,7 @@ name = None
 def main(name: str = None, videoFileName: str = None, save_file_name: str = None):
     name = name
     history = record(name, videoFileName)
-    processed = process_landmarks(history, plot=True)
+    processed = process_landmarks(history, plot=False)
 
     save_json(processed, save_file_name, name)
 
@@ -103,7 +113,3 @@ def plot_json():
 #         distances.append(distance)
 #
 #     print(distances, sum(distances) / len(distances))
-
-
-if __name__ == '__main__':
-    main()

@@ -2,7 +2,6 @@
 """
 import glob
 import os
-import re
 
 from nuitka.plugins.PluginBase import NuitkaPluginBase
 
