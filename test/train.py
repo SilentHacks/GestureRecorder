@@ -67,12 +67,12 @@ def record(path):
 def main():
     path = '../data/videos'
     for gesture in os.listdir(path):
-        if gesture == '.DS_Store':
+        if gesture == '.DS_Store' or gesture != 'reel':
             continue
 
         data = []
         for file in os.listdir(os.path.join(path, gesture)):
-            if file == '.DS_Store':
+            if file == '.DS_Store' or '3' not in file:
                 continue
             print(f'Gesture: {gesture}, File: {file}')
             history, first = record(path=os.path.join(path, gesture, file))
@@ -84,7 +84,9 @@ def main():
         min_distance = float('inf')
         min_file = data[0][0]
         best_data = data[0][1], data[0][2]
+        distance_dict = {}
         for i in range(len(data)):
+            distance_dict[i] = []
             for j in range(i + 1, len(data)):
                 if len(data[i][1]) != len(data[j][1]):
                     continue
@@ -102,15 +104,21 @@ def main():
                 if key_error:
                     continue
 
-                if distances < min_distance:
-                    min_distance = distances
-                    min_file = data[i][0]
-                    best_data = data[i][1], data[i][2]
+                distance_dict[i].append(distances)
+
+        for i, distances in distance_dict.items():
+            if not distances:
+                continue
+            avg_distance = sum(distances) / len(distances)
+            if avg_distance < min_distance:
+                min_distance = avg_distance
+                min_file = data[i][0]
+                best_data = data[i][1], data[i][2]
 
         print(f'Gesture: {gesture}, Min Distance: {min_distance}, Min File: {min_file}')
         last = calculate_ratios(best_data[1], relevant=best_data[0].keys())
         # first = best_data[1].tolist()
-        with open(f'models/gestures/{gesture}3.json', 'w') as f:
+        with open(f'models/gestures/{gesture}.json', 'w') as f:
             json.dump({'points': best_data[0], 'last': last}, f)
 
 

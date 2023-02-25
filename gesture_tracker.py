@@ -80,7 +80,7 @@ def calculate_ratios(landmarks, relevant):
 
 
 class GestureTracker:
-    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.5, pose_threshold: float = 0.99):
+    def __init__(self, camera: int | str = 0, pose_leniency: float = 0.6, pose_threshold: float = 0.99):
         """
         Initialize the recorder.
 
@@ -101,7 +101,7 @@ class GestureTracker:
     @staticmethod
     def load_gestures():
         gestures = []
-        include = ['hadouken3', 'tennis_swing3', 'baseball_swing3', 'kick3', 'punch3']
+        include = ['fish', 'reel']
         path = "test/models/gestures"
         for file in os.listdir(path):
             if file.endswith(".json") and file[:-5] in include:
@@ -225,17 +225,18 @@ class GestureTracker:
 
                 # self.scores.append((gesture['name'], mean))
 
-                threshold = 0.8 + 0.03 * num_points
+                threshold = 0.8 + 0.02 * num_points
                 # print(gesture['name'], mean, threshold)
                 if mean < threshold:
                     scores.append((gesture['name'], mean))
 
         if scores:
             scores.sort(key=lambda x: x[1])
-            self.color_keep = 10
+            self.color_keep = 20
             self.detected = scores[0][0]
-            if self.detected != 'single_wave3':
+            if self.detected != 'reel':
                 self.clear_history()
+                self.color_keep = 10
 
     def clear_history(self):
         for k in self.point_history.keys():
