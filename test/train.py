@@ -12,14 +12,14 @@ from utils.tracker_2d import process_landmarks
 
 
 def record(path):
-    MAX_FRAMES = 30
+    # MAX_FRAMES = 30
     cap = cv2.VideoCapture(path)
     # get the number of frames
     num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    diff = num_frames - MAX_FRAMES
-    # set the frame position to the middle
-    if diff > 1:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, diff // 2)
+    # diff = num_frames - MAX_FRAMES
+    # # set the frame position to the middle
+    # if diff > 1:
+    #     cap.set(cv2.CAP_PROP_POS_FRAMES, diff // 2)
 
     history = {num.value: [] for num in FOCUS_POINTS}
     first = None
@@ -30,6 +30,7 @@ def record(path):
             min_detection_confidence=0.5
     ) as pose:
         frame = 0
+        landmarks = []
         while cap.isOpened():
             # Read only the middle 30 frames
             ret, image = cap.read()
@@ -37,8 +38,6 @@ def record(path):
                 break
 
             frame += 1
-            if frame > MAX_FRAMES:
-                break
 
             image.flags.writeable = False
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -51,6 +50,7 @@ def record(path):
             #                           mp_pose.POSE_CONNECTIONS, landmark_drawing_spec=draw_style)
 
             if results.pose_world_landmarks:  # type: ignore
+                landmarks.append(results.pose_landmarks)
                 for num in FOCUS_POINTS:
                     landmark = results.pose_world_landmarks.landmark[num.value]  # type: ignore
                     history[num.value].append((landmark.x, landmark.y) if landmark else (0, 0))
@@ -59,19 +59,15 @@ def record(path):
             # if cv2.waitKey(5) & 0xFF == 27:
             #     break
 
-            if frame == MAX_FRAMES:
-                first = results.pose_landmarks
-                # first = calculate_ratios(results.pose_landmarks)
-
         cap.release()
 
-    return history, first
+    return history, landmarks[-1]
 
 
 def main():
-    path = 'dataset'
+    path = '../data/videos'
     for gesture in os.listdir(path):
-        if gesture == '.DS_Store' or gesture != 'single_wave':
+        if gesture == '.DS_Store':
             continue
 
         data = []
