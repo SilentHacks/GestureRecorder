@@ -1,8 +1,8 @@
 {
-    "name": "testRandom",
-    "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models\\poses\\testRandom.json",
+    "name": "testRandom2",
+    "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models",
     "is_new": true,
-    "is_gesture": false,
+    "is_gesture": true,
     "is_recordLive": true,
     "cameraNum": 0,
     "videoFilePath": "G:\\GithubRepos\\GestureRecorder\\data\\videos\\wave_right_hand\\1.mov",

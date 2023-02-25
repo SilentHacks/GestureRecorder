@@ -4,6 +4,7 @@ import utils.ThumbNailUtils as tn
 import gesture_recorder as gr
 import pose_recorder as pr
 from utils import VideoRecorder as vr
+import os
 
 class RecordPanel:
     def __init__(self, selected_options: dict):
@@ -25,8 +26,14 @@ class RecordPanel:
                 self.recorder.close()
                 print("record live pose")
             else: # gesture
-                self.gestureVideoRecord()
                 print("record live gesture")
+                self.gestureVideoRecord()
+
+                tempDir = os.path.join(os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), os.pardir), "data")), "videos")
+                capSource = os.path.join(tempDir, f'{self.name}.avi')
+                gr.main(name=self.name, videoFileName=capSource, save_file_name=self.save_file_path)
+                tn.ThumbNailUtils.gifVideoCvt(videoFilePath=capSource, gestureName=self.name,
+                                              save_dir=self.save_file_path)
         else: # import video
             capSource = self.import_path
             if self.record_mode == "pose":
@@ -43,7 +50,7 @@ class RecordPanel:
         print("recorded")
 
     def gestureVideoRecord(self):
-        videoRecorder = vr.VideoRecorder(name=self.name, camera=self.camera_num, dataPath=self.save_file_path)
+        videoRecorder = vr.VideoRecorder(name=self.name, camera=self.camera_num)
         videoRecorder.run()
         pass
 
