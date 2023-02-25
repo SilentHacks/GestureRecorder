@@ -12,7 +12,8 @@ class ThumbNailUtils:
         dataPath = os.path.abspath(os.path.join(os.path.join(save_dir, os.pardir), os.pardir))
         # fileName = videoFilePath.split("/")[-1][:-4]
         reversed_clip = clip.fx(mirror_x)
-        reversed_clip.write_gif(fps=8, filename=f'{dataPath}/{"thumbnails/gestureGifs"}/' + gestureName + ".gif")
+        reversed_clip.write_gif(fps=8, filename=f'{dataPath}/{"thumbnails/gestureGifs"}/' + gestureName + ".gif",
+                                program="ffmpeg")
 
     @staticmethod
     def frameImgCvt(name=None, frame=None, save_dir=None):
