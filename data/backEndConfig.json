@@ -1,9 +1,9 @@
 {
-    "name": "testRandom2",
-    "dataFilePath": "C:\\Users\\abid3\\PycharmProjects\\GestureRecorder2\\data\\models",
+    "name": "testRecord",
+    "dataFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/models",
     "is_new": true,
     "is_gesture": true,
-    "is_recordLive": false,
+    "is_recordLive": true,
     "cameraNum": 1,
     "videoFilePath": "C:\\Users\\abid3\\PycharmProjects\\GestureRecorder2\\data\\videos\\wave_right_hand\\1.mov",
     "sensitivity": 3
