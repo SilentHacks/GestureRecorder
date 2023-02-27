@@ -85,6 +85,13 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     max_axis_length = 0
 
     for landmark_id, tracking_points in landmark_history.items():
+        num = 0
+        for (x, y) in tracking_points:
+            if x == 0 and y == 0:
+                num += 1
+        if num > 0.5 * len(tracking_points):
+            continue
+
         tracking_points = np.array(tracking_points)
         numpy_landmarks[landmark_id] = tracking_points
         axis_length = max(tracking_points[:, 0].ptp(), tracking_points[:, 1].ptp()) or 1

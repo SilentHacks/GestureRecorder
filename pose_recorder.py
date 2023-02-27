@@ -108,7 +108,7 @@ class PoseRecorder:
         # Split INFO_TEXT on newline characters
         info_text = INFO_TEXT.split('\n')
         for i, line in enumerate(info_text):
-            cv2.putText(image, line, (10, 670 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(image, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
         return image
 
@@ -223,7 +223,7 @@ class PoseRecorder:
                 ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
 
             self.save_pose(ratios=ratios, name=name)
-            tn.frameImgCvt(name=name, frame=frame)
+            tn.frameImgCvt(name=name, frame=frame, save_dir=self.save_dir)
 
         return False
 
@@ -274,8 +274,3 @@ class PoseRecorder:
                 key = cv2.waitKey(1)
                 if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks, name=name, frame=frame):
                     break
-
-
-if __name__ == '__main__':
-    recorder = PoseRecorder()
-    recorder.record(name='3')
