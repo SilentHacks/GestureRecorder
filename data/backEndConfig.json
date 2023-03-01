@@ -1,10 +1,9 @@
 {
-    "name": "testRecord",
+    "name": "testNewGifCvt",
     "dataFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/models",
-    "is_new": true,
     "is_gesture": true,
     "is_recordLive": true,
     "cameraNum": 1,
-    "videoFilePath": "C:\\Users\\abid3\\PycharmProjects\\GestureRecorder2\\data\\videos\\wave_right_hand\\1.mov",
+    "videoFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/videos/wave_right_hand/1.mov",
     "sensitivity": 3
 }

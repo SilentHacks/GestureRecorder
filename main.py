@@ -18,7 +18,7 @@ class Main:
         with open(configPath, "r") as f:
             data = json.load(f)
             self.name = data["name"]
-            self.dataFilePath = data["dataFilePath"] # the file could include just data/models or data/models/gesture/someGesture.json or data/models/pose/somePose.json
+            self.dataFilePath = "data/models" # the file could include just data/models or data/models/gesture/someGesture.json or data/models/pose/somePose.json
             # if no json is finded then it is a new gesture or pose, if json is finded then it is a gesture or pose that needs calibration
             self.camera_num = data["cameraNum"]
             self.sensitivity = data["sensitivity"]
@@ -85,6 +85,7 @@ class Main:
         print("final selected_options: ", selected_options)
         record_panel = cp.RecordPanel(selected_options)
         record_panel.initRecorder()
+
 
     def newGesture(self):
         # record gesture

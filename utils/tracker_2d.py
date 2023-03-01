@@ -81,6 +81,7 @@ def savgol_filter_points(points: np.ndarray, window_length: int, polyorder: int)
 def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
     """Select the relevant landmarks from the tracking points based on the variance of its signal"""
     good_landmarks = set()
+    bad_landmarks = set()
     numpy_landmarks = {}
     max_axis_length = 0
 
@@ -90,7 +91,7 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
             if x == 0 and y == 0:
                 num += 1
         if num > 0.5 * len(tracking_points):
-            continue
+            bad_landmarks.add(landmark_id)
 
         tracking_points = np.array(tracking_points)
         numpy_landmarks[landmark_id] = tracking_points
@@ -99,6 +100,8 @@ def select_landmarks(landmark_history: dict[int, list[tuple[int, int]]]):
             max_axis_length = axis_length
 
     for landmark_id, tracking_points in numpy_landmarks.items():
+        if landmark_id in bad_landmarks:
+            continue
         # Smooth the tracking points using a median filter with r=3
         # smoothed_points = laplacian_smoothing(tracking_points)
 

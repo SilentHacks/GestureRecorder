@@ -32,7 +32,7 @@ class RecordPanel:
                 tempDir = os.path.join(os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), os.pardir), "data")), "videos")
                 capSource = os.path.join(tempDir, f'{self.name}.avi')
                 gr.main(name=self.name, videoFileName=capSource, save_file_name=self.save_file_path)
-                tn.ThumbNailUtils.gifVideoCvt(videoFilePath=capSource, gestureName=self.name,
+                tn.ThumbNailUtils.gifVideoCvt2(videoFilePath=capSource, gestureName=self.name,
                                               save_dir=self.save_file_path)
         else: # import video
             capSource = self.import_path
@@ -44,7 +44,7 @@ class RecordPanel:
             else: # gesture
                 print("video file is: ", capSource)
                 gr.main(name=self.name, videoFileName=capSource, save_file_name=self.save_file_path)
-                tn.ThumbNailUtils.gifVideoCvt(videoFilePath=self.import_path, gestureName=self.name, save_dir=self.save_file_path)
+                tn.ThumbNailUtils.gifVideoCvt2(videoFilePath=self.import_path, gestureName=self.name, save_dir=self.save_file_path)
                 print("import video gesture")
 
         print("recorded")

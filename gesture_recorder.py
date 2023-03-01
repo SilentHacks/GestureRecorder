@@ -61,6 +61,7 @@ def record(gesture_name, file_name):
                 break
 
         cap.release()
+        cv2.destroyAllWindows()
 
     print('Frames:', len(history[list(history.keys())[0]]))
 
