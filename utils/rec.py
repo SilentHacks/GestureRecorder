@@ -4,7 +4,7 @@ import threading
 import queue
 
 # Create a VideoCapture object
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 # Check if camera opened successfully
 if (cap.isOpened() == False):
@@ -67,7 +67,10 @@ while (True):
             print("Recording stopped.")
             recording = False
             break
-
+        elif exit(0):
+            print("Recording stopped.")
+            recording = False
+            break
 
         # Put the frame into the queue for recording thread to consume
         frame_queue.put(frame)

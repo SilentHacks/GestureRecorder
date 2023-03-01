@@ -30,11 +30,10 @@ class VideoRecorder:
         # self.dataPath = os.path.join(os.path.abspath(os.path.join(os.path.join(dataPath, os.pardir), os.pardir)), "videos", name)
 
         self.save_file = os.path.join(self.dataPath, f'{self.name}.avi')
-        self.cap = cv2.VideoCapture(camera)
+        self.cap = cv2.VideoCapture(camera, cv2.CAP_DSHOW)
         self.cap.set(cv2.CAP_PROP_FPS, 15)
         self.capSize = (int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         # cv2.resizeWindow('Gesture Recorder', self.size[0], self.size[1])
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.size[0])
         self.showRect = False
         self.showCountDown = False
         self.countDownNum = 3
@@ -43,11 +42,13 @@ class VideoRecorder:
 
     def run(self):
         print(self.save_file)
+        print("camera: ", self.camera)
         self.start()
         while True:
             self.cap.set(cv2.CAP_PROP_FPS, 15)
             print("recording: ", self.recording)
             _, frame = self.cap.read()
+            # resized_frame = cv2.resize(frame, self.size)
             cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.cap.get(cv2.CAP_PROP_FPS)))
             key = cv2.waitKey(1)
             if self.recording:
@@ -55,6 +56,7 @@ class VideoRecorder:
             if self.handle_key(key=key):
                 break
             # time.sleep(0.05)
+
 
         self.cap.release()
         self.video.release()

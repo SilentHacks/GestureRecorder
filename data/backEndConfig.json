@@ -1,9 +1,9 @@
 {
-    "name": "testNewGifCvt",
+    "name": "testNewGifCvt2",
     "dataFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/models",
     "is_gesture": true,
     "is_recordLive": true,
-    "cameraNum": 1,
-    "videoFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/videos/wave_right_hand/1.mov",
+    "cameraNum": 0,
+    "videoFilePath": "G:\\GithubRepos\\GestureRecorder\\data\\videos\\wave_right_hand\\1.mov",
     "sensitivity": 3
 }
