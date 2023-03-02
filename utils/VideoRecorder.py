@@ -3,6 +3,8 @@ import time
 
 import cv2
 import os
+from utils.add_transparent_img import add_transparent_image
+
 """ simple video recorder, opens a cv window via webcam
     user press 'r' to start recording, the recording length will be <= 2 seconds """
 
@@ -11,7 +13,8 @@ INFO_TEXT = ('"R" to start recording\n'
              
              '"ESC" to quit')
 INFO_TEXT2 = ("The recording will start after a 3-second countdown\n"
-             "Setup and do gesture neatly right when the recording starts\n")
+             "Setup and do gesture\n"
+              "neatly right when the recording starts\n")
 
 class VideoRecorder:
     def __init__(self, camera = 0, name: str = None):
@@ -30,10 +33,12 @@ class VideoRecorder:
         # self.dataPath = os.path.join(os.path.abspath(os.path.join(os.path.join(dataPath, os.pardir), os.pardir)), "videos", name)
 
         self.save_file = os.path.join(self.dataPath, f'{self.name}.avi')
-        self.cap = cv2.VideoCapture(camera, cv2.CAP_DSHOW)
+        self.cap = cv2.VideoCapture(camera)
         self.cap.set(cv2.CAP_PROP_FPS, 15)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.size[0])
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.size[1])
         self.capSize = (int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        # cv2.resizeWindow('Gesture Recorder', self.size[0], self.size[1])
+        print("prop frame height", self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.showRect = False
         self.showCountDown = False
         self.countDownNum = 3
@@ -42,11 +47,11 @@ class VideoRecorder:
 
     def run(self):
         print(self.save_file)
-        print("camera: ", self.camera)
+        # print("camera: ", self.camera)
         self.start()
         while True:
             self.cap.set(cv2.CAP_PROP_FPS, 15)
-            print("recording: ", self.recording)
+            # print("recording: ", self.recording)
             _, frame = self.cap.read()
             # resized_frame = cv2.resize(frame, self.size)
             cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.cap.get(cv2.CAP_PROP_FPS)))
@@ -71,18 +76,15 @@ class VideoRecorder:
         cv2.putText(frame, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
-        alpha = 0.4
-        # img = cv2.imread('assets/man.png', cv2.IMREAD_GRAYSCALE)
-        # added_image = cv2.addWeighted(frame[150:250, 150:250, :], alpha, img, 1 - alpha, 0)
         # Split INFO_TEXT on newline characters
         info_text = INFO_TEXT.split('\n')
-        cv2.rectangle(frame, (int(self. capSize[0] / 2 - self.capSize[0] / 5), 0), (int(self.capSize[0] / 2 + self.capSize[0] / 5), self.capSize[1]), (255, 0, 0), 5)
+        # cv2.rectangle(frame, (int(self. size[0] / 2 - self.size[0] / 5), 0), (int(self.size[0] / 2 + self.size[0] / 5), self.size[1]), (255, 0, 0), 5)
         for i, line in enumerate(info_text):
-            cv2.putText(frame, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, self.capSize[0] / 1500, (255, 255, 255), 1, cv2.LINE_AA)
 
         info_text2 = INFO_TEXT2.split('\n')
         for i, line in enumerate(info_text2):
-            cv2.putText(frame, line, (10, 450 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, line, (10, 450 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, self.capSize[0] / 1500, (0, 0, 255), 1, cv2.LINE_AA)
 
         if self.showCountDown:
             cv2.putText(frame, str(self.countDownNum), (int(self.capSize[0] / 2), int(self.capSize[1] / 2)), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 5, cv2.LINE_AA)
@@ -90,6 +92,17 @@ class VideoRecorder:
         if self.showRect:
             cv2.rectangle(frame, (0, 0), (self.capSize[0], self.capSize[1]), (0, 0, 255), 20)
             cv2.line(frame, (30, self.capSize[1] - 30), (self.barLength * 5 + 30, self.capSize[1] - 30), (0, 255, 0), 20)
+
+        # put the guide picture
+        img = cv2.imread('utils/assets/man.png', cv2.IMREAD_UNCHANGED)
+        h, w, _ = img.shape
+        h_new = int(h * self.capSize[0] / 700)
+        w_new = int(w * self.capSize[0] / 700)
+        # h_new = int(h * 2)
+        # w_new = int(w * 2)
+
+        img_resized = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_AREA)
+        add_transparent_image(frame, img_resized, int(self.size[0] / 2 - h_new / 2), 0)
 
         return frame
 
@@ -152,7 +165,7 @@ class VideoRecorder:
         :param frame: frame to record
         :return:
         """
-        print("here")
+        # print("here")
         vidout = cv2.resize(frame, self.size)
         self.video.write(vidout)
         self.frame_count += 1
