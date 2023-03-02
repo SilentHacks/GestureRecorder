@@ -44,17 +44,17 @@ class VideoRecorder:
         self.countDownNum = 3
         self.barLength = 100
         self.finishRecording = False
+        self.showGuide = True
 
     def run(self):
         print(self.save_file)
         # print("camera: ", self.camera)
         self.start()
         while True:
-            self.cap.set(cv2.CAP_PROP_FPS, 15)
             # print("recording: ", self.recording)
             _, frame = self.cap.read()
             # resized_frame = cv2.resize(frame, self.size)
-            cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.cap.get(cv2.CAP_PROP_FPS)))
+            cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.fps))
             key = cv2.waitKey(1) & 0xFF
             if self.recording:
                 self.record(frame=frame)
@@ -71,6 +71,7 @@ class VideoRecorder:
 
 
     def draw_info(self, frame, fps: int):
+        frame_height, frame_width, _ = frame.shape
         cv2.putText(frame, 'FPS:' + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (0, 0, 0), 4, cv2.LINE_AA)
         cv2.putText(frame, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
@@ -80,29 +81,30 @@ class VideoRecorder:
         info_text = INFO_TEXT.split('\n')
         # cv2.rectangle(frame, (int(self. size[0] / 2 - self.size[0] / 5), 0), (int(self.size[0] / 2 + self.size[0] / 5), self.size[1]), (255, 0, 0), 5)
         for i, line in enumerate(info_text):
-            cv2.putText(frame, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, self.capSize[0] / 1500, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1200, (255, 255, 255), 1, cv2.LINE_AA)
 
         info_text2 = INFO_TEXT2.split('\n')
         for i, line in enumerate(info_text2):
-            cv2.putText(frame, line, (10, 450 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, self.capSize[0] / 1500, (0, 0, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, line, (10, 450 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1200, (0, 0, 255), 1, cv2.LINE_AA)
 
         if self.showCountDown:
-            cv2.putText(frame, str(self.countDownNum), (int(self.capSize[0] / 2), int(self.capSize[1] / 2)), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 5, cv2.LINE_AA)
+            cv2.putText(frame, str(self.countDownNum), (int(frame_width / 2 - frame_width / 24), int(frame_height / 2)), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 5, cv2.LINE_AA)
 
         if self.showRect:
-            cv2.rectangle(frame, (0, 0), (self.capSize[0], self.capSize[1]), (0, 0, 255), 20)
+            self.showGuide = False
+            cv2.rectangle(frame, (0, 0), (frame_width,frame_height), (0, 0, 255), 20)
             cv2.line(frame, (30, self.capSize[1] - 30), (self.barLength * 5 + 30, self.capSize[1] - 30), (0, 255, 0), 20)
 
         # put the guide picture
         img = cv2.imread('utils/assets/man.png', cv2.IMREAD_UNCHANGED)
         h, w, _ = img.shape
-        h_new = int(h * self.capSize[0] / 700)
-        w_new = int(w * self.capSize[0] / 700)
+        h_new = int(h * frame_width / 1000)
+        w_new = int(w * frame_width / 1000)
         # h_new = int(h * 2)
         # w_new = int(w * 2)
-
-        img_resized = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_AREA)
-        add_transparent_image(frame, img_resized, int(self.size[0] / 2 - h_new / 2), 0)
+        if self.showGuide:
+            img_resized = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_AREA)
+            add_transparent_image(frame, img_resized, int(frame_width / 2 - h_new / 2), int(frame_height / 36))
 
         return frame
 
