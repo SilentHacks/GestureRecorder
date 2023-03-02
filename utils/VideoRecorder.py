@@ -50,7 +50,7 @@ class VideoRecorder:
             _, frame = self.cap.read()
             # resized_frame = cv2.resize(frame, self.size)
             cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.cap.get(cv2.CAP_PROP_FPS)))
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(1) & 0xFF
             if self.recording:
                 self.record(frame=frame)
             if self.handle_key(key=key):

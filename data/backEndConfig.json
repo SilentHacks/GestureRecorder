@@ -1,9 +1,9 @@
 {
-    "name": "testNewGifCvt2",
-    "dataFilePath": "/Users/zhangweiyi/Documents/GitHub/GestureRecorder/data/models",
-    "is_gesture": true,
-    "is_recordLive": true,
     "cameraNum": 0,
-    "videoFilePath": "G:\\GithubRepos\\GestureRecorder\\data\\videos\\wave_right_hand\\1.mov",
-    "sensitivity": 3
+    "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models",
+    "is_gesture": 1,
+    "is_recordLive": 0,
+    "name": "Wow",
+    "sensitivity": 5,
+    "videoFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\videos\\rotate_hand.mp4"
 }
