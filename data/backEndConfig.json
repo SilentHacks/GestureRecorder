@@ -1,9 +1,8 @@
 {
-    "cameraNum": 0,
-    "dataFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\models",
-    "is_gesture": 1,
-    "is_recordLive": 1,
+    "cameraNum": 1,
+    "is_gesture": 0,
+    "is_recordLive": 0,
     "name": "Wow",
     "sensitivity": 5,
-    "videoFilePath": "C:\\Users\\WeiyiZhang\\Desktop\\data\\videos\\rotate_hand.mp4"
+    "videoFilePath": "C:\\Users\\abid3\\PycharmProjects\\GestureRecorder2\\data\\videos\\rotate_hand.mp4"
 }

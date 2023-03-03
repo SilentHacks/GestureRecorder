@@ -11,7 +11,6 @@ from utils.ThumbNailUtils import ThumbNailUtils as tn
 
 NUM_LANDMARKS = 21
 INFO_TEXT = ('"S" to save the pose\n'
-             '"D" to delete the pose\n'
              '"ESC" to quit')
 
 
@@ -39,6 +38,7 @@ class PoseRecorder:
         :param pose_leniency: the leniency of the pose (0-1)
         :param pose_threshold: the threshold of the pose (0-1)
         """
+        self.camera = camera
         self.capture = cv2.VideoCapture(camera)
         self.num_hands = num_hands
         self.static_image_mode = static_image_mode
@@ -51,19 +51,20 @@ class PoseRecorder:
         self.save_dir = save_dir
         self.pose = ''
         self.poses = self.load_poses(save_dir=save_dir)
-        self.detected = {num: None for num in range(num_hands)}
+        self.detected = None
+        self._window_name = 'Pose Recorder'
 
     def close(self):
         cv2.destroyAllWindows()
         self.capture.release()
 
-    def get_color(self, hand: int) -> tuple[int, int, int]:
+    def get_color(self) -> tuple[int, int, int]:
         """
         Get the color of the hand based on whether it is detected or not.
 
         :return: color as a tuple of (B, G, R)
         """
-        if self.detected[hand]:
+        if self.detected:
             return 0, 255, 0
 
         return 0, 0, 255
@@ -76,15 +77,14 @@ class PoseRecorder:
         :param results: results from the mediapipe hands module
         :return:
         """
-        for index, hand_landmarks in enumerate(results.multi_hand_landmarks):
-            color = self.get_color(index)
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=hand_landmarks,
-                connections=mp_hands.HAND_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2),
-                connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)
-            )
+        color = self.get_color()
+        mp_drawing.draw_landmarks(
+            image=frame,
+            landmark_list=results.multi_hand_landmarks[0],
+            connections=mp_hands.HAND_CONNECTIONS,
+            landmark_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2),
+            connection_drawing_spec=mp_drawing.DrawingSpec(color=color, thickness=2, circle_radius=2)
+        )
 
     def draw_info(self, image, fps: int):
         cv2.putText(image, 'FPS:' + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
@@ -92,18 +92,13 @@ class PoseRecorder:
         cv2.putText(image, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
-        index = 1
-        for hand, pose in self.detected.items():
-            if not pose:
-                continue
-
-            text = f'HAND {index} - POSE {pose}'
-            cv2.putText(image, text, (10, 110 + hand * 30), cv2.FONT_HERSHEY_SIMPLEX,
+        if self.detected:
+            text = f'POSE {self.detected}'
+            cv2.putText(image, text, (10, 140), cv2.FONT_HERSHEY_SIMPLEX,
                         1.0, (255, 255, 255), 4, cv2.LINE_AA)
-            cv2.putText(image, text, (10, 110 + hand * 30), cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.putText(image, text, (10, 140), cv2.FONT_HERSHEY_SIMPLEX,
                         1.0, (0, 0, 0), 2, cv2.LINE_AA)
 
-            index += 1
 
         # Split INFO_TEXT on newline characters
         info_text = INFO_TEXT.split('\n')
@@ -149,8 +144,7 @@ class PoseRecorder:
         :return:
         """
         self.poses.clear()
-        for key in self.detected:
-            self.detected[key] = None
+        self.detected = None
 
     def check_pose(self, ratios: np.ndarray):
         """
@@ -213,12 +207,10 @@ class PoseRecorder:
         :param name: name of the pose
         :return: True if the program should exit, False otherwise
         """
-        if key == 27:  # ESC
+        if key == 27 or cv2.getWindowProperty(self._window_name, cv2.WND_PROP_VISIBLE) < 1:  # ESC
             return True
 
-        if key == 100:  # D:
-            self.clear_pose()
-        elif key == 115:  # S:
+        if key == 115:  # S:
             if ratios is None:
                 ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
 
@@ -254,23 +246,23 @@ class PoseRecorder:
                     ratios = None
                     if results.multi_hand_landmarks is not None:  # type: ignore
                         self.draw_landmarks(frame=frame, results=results)  # type: ignore
-                        if self.poses:
-                            for index in range(self.num_hands):
-                                try:
-                                    hand_landmarks = results.multi_hand_landmarks[index]  # type: ignore
-                                except IndexError:
-                                    self.detected[index] = None
-                                    continue
+                        try:
+                            hand_landmarks = results.multi_hand_landmarks[0]  # type: ignore
+                        except IndexError:
+                            self.detected = None
 
-                                ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
-                                self.detected[index] = self.check_pose(ratios=ratios)
-                    cv2.imshow('Test Hand', self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
+                        if self.poses:
+                            ratios = self.calculate_ratios(hand_landmarks=hand_landmarks)
+                            self.detected = self.check_pose(ratios=ratios)
+
+                    cv2.imshow(self._window_name, self.draw_info(image=cv2.flip(frame, 1), fps=fps_tracker.get()))
                 else:
                     print("ready to do again")
                     # If the video is over, start again
                     self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
 
-                key = cv2.waitKey(1)
+                delay = 50 if isinstance(self.camera, str) else 1
+                key = cv2.waitKey(delay)
                 if self.handle_key(key=key, ratios=ratios, hand_landmarks=hand_landmarks, name=name, frame=frame):
                     break

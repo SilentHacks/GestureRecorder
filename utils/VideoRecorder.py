@@ -4,6 +4,7 @@ import time
 import cv2
 import os
 from utils.add_transparent_img import add_transparent_image
+from utils.fps_tracker import FPSTracker
 
 """ simple video recorder, opens a cv window via webcam
     user press 'r' to start recording, the recording length will be <= 2 seconds """
@@ -45,16 +46,18 @@ class VideoRecorder:
         self.barLength = 100
         self.finishRecording = False
         self.showGuide = True
+        self._window_name = 'Gesture Recorder'
 
     def run(self):
         print(self.save_file)
         # print("camera: ", self.camera)
         self.start()
+        fps_tracker = FPSTracker()
         while True:
             # print("recording: ", self.recording)
             _, frame = self.cap.read()
             # resized_frame = cv2.resize(frame, self.size)
-            cv2.imshow('Gesture Recorder', self.draw_info(frame=cv2.flip(frame, 1), fps=self.fps))
+            cv2.imshow(self._window_name, self.draw_info(frame=cv2.flip(frame, 1), fps=fps_tracker.get()))
             key = cv2.waitKey(1) & 0xFF
             if self.recording:
                 self.record(frame=frame)
@@ -98,13 +101,13 @@ class VideoRecorder:
         # put the guide picture
         img = cv2.imread('utils/assets/man.png', cv2.IMREAD_UNCHANGED)
         h, w, _ = img.shape
-        h_new = int(h * frame_width / 1000)
-        w_new = int(w * frame_width / 1000)
+        h_new = int(h * frame_height / 600)
+        w_new = int(w * frame_height / 600)
         # h_new = int(h * 2)
         # w_new = int(w * 2)
         if self.showGuide:
             img_resized = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_AREA)
-            add_transparent_image(frame, img_resized, int(frame_width / 2 - h_new / 2), int(frame_height / 36))
+            add_transparent_image(frame, img_resized, int(frame_width / 2 - h_new / 2), int(frame_height / 25))
 
         return frame
 
@@ -120,7 +123,7 @@ class VideoRecorder:
                 threading.Thread(target=self.countDown).start()
                 self.showCountDown = True
                 return False
-        elif key == 27:
+        elif key == 27 or cv2.getWindowProperty(self._window_name, cv2.WND_PROP_VISIBLE) < 1:
             return True
         elif self.finishRecording:
             return True

@@ -23,8 +23,7 @@ def build():
     args = parser.parse_args()
     print(args)
     nuitka_args.append('--lto=yes')
-    # if not args.console:
-    #     nuitka_args.append('--windows-disable-console')
+    nuitka_args.append('--windows-disable-console')
     subprocess.call([sys.executable, "-m", "nuitka"] + nuitka_args + [args.target_file])
 
 
