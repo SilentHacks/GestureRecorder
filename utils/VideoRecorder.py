@@ -84,11 +84,11 @@ class VideoRecorder:
         info_text = INFO_TEXT.split('\n')
         # cv2.rectangle(frame, (int(self. size[0] / 2 - self.size[0] / 5), 0), (int(self.size[0] / 2 + self.size[0] / 5), self.size[1]), (255, 0, 0), 5)
         for i, line in enumerate(info_text):
-            cv2.putText(frame, line, (10, 300 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1200, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, line, (10, int(frame_height / 5 + i * 20)), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1000, (255, 255, 255), 1, cv2.LINE_AA)
 
         info_text2 = INFO_TEXT2.split('\n')
-        for i, line in enumerate(info_text2):
-            cv2.putText(frame, line, (10, 450 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1200, (0, 0, 255), 1, cv2.LINE_AA)
+        for i, line in enumerate(info_text2[::-1]):
+            cv2.putText(frame, line, (10, frame_height - int(frame_height / 30 + i * 20)), cv2.FONT_HERSHEY_SIMPLEX, frame_height / 1000, (0, 0, 255), 1, cv2.LINE_AA)
 
         if self.showCountDown:
             cv2.putText(frame, str(self.countDownNum), (int(frame_width / 2 - frame_width / 24), int(frame_height / 2)), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 5, cv2.LINE_AA)
