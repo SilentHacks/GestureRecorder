@@ -1,8 +1,8 @@
 {
-    "cameraNum": 1,
-    "is_gesture": 0,
-    "is_recordLive": 0,
-    "name": "Wow",
+    "cameraNum": 0,
+    "is_gesture": 1,
+    "is_recordLive": 1,
+    "name": "testDelete",
     "sensitivity": 5,
     "videoFilePath": "C:\\Users\\abid3\\PycharmProjects\\GestureRecorder2\\data\\videos\\rotate_hand.mp4"
 }

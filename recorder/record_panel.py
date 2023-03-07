@@ -34,6 +34,10 @@ class RecordPanel:
                 gr.main(name=self.name, videoFileName=capSource, save_file_name=self.save_file_path)
                 tn.ThumbNailUtils.gifVideoCvt2(videoFilePath=capSource, gestureName=self.name,
                                               save_dir=self.save_file_path)
+
+                filePath = os.path.join(os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), os.pardir), "data")), "videos")
+                os.remove(os.path.join(filePath, f'{self.name}.avi'))
+
         else: # import video
             capSource = self.import_path
             if self.record_mode == "pose":
