@@ -99,7 +99,7 @@ class VideoRecorder:
             cv2.line(frame, (30, self.capSize[1] - 30), (self.barLength * 5 + 30, self.capSize[1] - 30), (0, 255, 0), 20)
 
         # put the guide picture
-        img = cv2.imread('utils/assets/man.png', cv2.IMREAD_UNCHANGED)
+        img = cv2.imread('data/assets/man.png', cv2.IMREAD_UNCHANGED)
         h, w, _ = img.shape
         h_new = int(h * frame_height / 600)
         w_new = int(w * frame_height / 600)
