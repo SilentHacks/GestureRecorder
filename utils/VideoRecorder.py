@@ -34,7 +34,7 @@ class VideoRecorder:
         # self.dataPath = os.path.join(os.path.abspath(os.path.join(os.path.join(dataPath, os.pardir), os.pardir)), "videos", name)
 
         self.save_file = os.path.join(self.dataPath, f'{self.name}.avi')
-        self.cap = cv2.VideoCapture(camera)
+        self.cap = cv2.VideoCapture(camera, cv2.CAP_DSHOW)
         self.cap.set(cv2.CAP_PROP_FPS, 15)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.size[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.size[1])
@@ -55,7 +55,11 @@ class VideoRecorder:
         fps_tracker = FPSTracker()
         while True:
             # print("recording: ", self.recording)
-            _, frame = self.cap.read()
+            ret, frame = self.cap.read()
+            if not ret:
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.camera)
+                continue
             # resized_frame = cv2.resize(frame, self.size)
             cv2.imshow(self._window_name, self.draw_info(frame=cv2.flip(frame, 1), fps=fps_tracker.get()))
             key = cv2.waitKey(1) & 0xFF

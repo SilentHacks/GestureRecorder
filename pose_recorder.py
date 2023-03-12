@@ -39,7 +39,7 @@ class PoseRecorder:
         :param pose_threshold: the threshold of the pose (0-1)
         """
         self.camera = camera
-        self.capture = cv2.VideoCapture(camera)
+        self.capture = cv2.VideoCapture(camera, cv2.CAP_DSHOW)
         self.num_hands = num_hands
         self.static_image_mode = static_image_mode
         self.min_detection_confidence = min_detection_confidence
@@ -236,6 +236,10 @@ class PoseRecorder:
             while True:
                 ret, frame = self.capture.read()
                 # print("here to do the loop")
+                if not ret:
+                    self.capture.release()
+                    self.capture = cv2.VideoCapture(self.camera)
+                    continue
                 if ret:
                     # To improve performance, mark the image as not writeable to pass by reference
                     frame.flags.writeable = False
